@@ -143,7 +143,7 @@ cherry-studio
 │   │   ├── data/                #   Data layer (DB, Cache, Preference, DataApi)
 │   │   ├── services/            #   Main process services outside AI/data/core
 │   │   ├── knowledge/           #   RAG / knowledge base
-│   │   ├── mcpServers/          #   Built-in MCP servers
+│   │   ├── ai/mcp/servers/      #   Built-in MCP servers
 │   │   ├── apiServer/           #   Local REST API (Express)
 │   │   └── integration/         #   External integrations
 │   │
