@@ -1,0 +1,69 @@
+# Trace
+
+## What's instrumented
+
+Every AI SDK call run through Cherry produces an OpenTelemetry span
+tree:
+
+```
+chat.turn                                      (root, created by context provider)
+├── ai.streamText                              (AI SDK auto)
+│   ├── ai.streamText.doStream                 (AI SDK auto)
+│   ├── ai.toolCall (per tool invocation)      (AI SDK auto)
+│   └── ai.streamText.<step>                   (AI SDK auto)
+└── attributes: topicId, modelName, …          (set by AiTurnTrace / AdapterTracer)
+```
+
+AI SDK's `experimental_telemetry` produces the inner spans; Cherry owns
+the root span through `AiTurnTrace` so it lands in the same observability
+path without going through the AI SDK adapter.
+
+The main-process observability boundary is `src/main/ai/observability`:
+
+- `core/` creates Cherry-owned turn roots and common `cs.*` attributes.
+- `adapters/aiSdk/` interprets AI SDK child spans.
+- `adapters/claudeCode/` interprets Claude Code OTLP spans and logs.
+- `cache/` keeps the trace-window projection and JSONL-compatible history.
+- `sinks/` defines the extension point for local and future external export.
+
+## AdapterTracer
+
+`src/main/ai/observability/adapters/aiSdk/adapterTracer.ts` wraps the OTel `Tracer` returned
+by the global provider. On every `startSpan` / `startActiveSpan` it:
+
+1. Patches `span.end()` to also call `AiSdkSpanAdapter.convertToSpanEntity(...)`
+   and hand the result to the observability sink registry.
+2. Stamps `trace.topicId` and `trace.modelName` so spans are queryable
+   per topic in the dev-tools UI.
+
+`AdapterTracer` is intentionally only for AI SDK child spans:
+
+- `buildTelemetry` (`runtime/aiSdk/params/buildTelemetry.ts`) — passed to AI
+  SDK as `experimental_telemetry.tracer`. Captures every AI SDK auto-span.
+
+## AiSdkSpanAdapter
+
+`src/main/ai/observability/adapters/aiSdk/aiSdkSpanAdapter.ts` converts an OTel span into the
+shape the dev-tools UI consumes:
+
+- Reads span name, attributes, events, status, links.
+- Recovers AI SDK's hierarchical attribute conventions:
+  `ai.xxx` is a level, `ai.xxx.yyy` is a sub-level under it.
+- Normalises usage attributes (`ai.usage.input_tokens` /
+  `output_tokens` / `reasoning_tokens` / …) across providers.
+
+Claude Code Agent SDK spans do not go through `AiSdkSpanAdapter`; they are
+converted by `src/main/ai/observability/adapters/claudeCode/ClaudeCodeOtlpAdapter.ts`.
+
+## Where it shows up in the UI
+
+Dev mode only. The dev-tools span viewer reads from the local observability
+projection (`SpanCacheService`) and renders the per-topic tree. Disabled in
+production builds — the adapter tracer is still attached, but the local
+projection is short-circuited.
+
+## Where to read more
+
+- Code: `src/main/ai/observability/`
+- Span projection: `src/main/ai/observability/cache/SpanCacheService.ts`
+- AI SDK telemetry docs: https://ai-sdk.dev/docs/reference/ai-sdk-core/telemetry
