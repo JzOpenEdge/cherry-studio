@@ -25,6 +25,15 @@ translate, summarisation) and the renderer-side transport that connects to it.
 | [Provider Resolution](./provider-resolution.md) | `Provider.endpointConfigs` schema, endpoint resolution chain, variant suffixes, custom provider extensions (aihubmix, newapi) |
 | [Trace / Telemetry](./trace.md) | `AiSdkSpanAdapter`, root span propagation, OTel attribute shape, what each span captures |
 
+### CherryClaw autonomous agent
+
+| Document | What it covers |
+|---|---|
+| [CherryClaw Overview](./cherryclaw/overview.md) | Autonomous agent architecture, memory model, API |
+| [Channel System](./cherryclaw/channels.md) | IM integration for CherryClaw agents |
+| [Claw MCP Server](./cherryclaw/mcp-claw.md) | Built-in MCP tools for scheduling, notifications, skills, and memory |
+| [Scheduler](./cherryclaw/scheduler.md) | Task-based polling scheduler |
+
 ### Renderer-side glue
 
 | Document | What it covers |

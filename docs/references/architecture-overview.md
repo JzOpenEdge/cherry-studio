@@ -184,7 +184,7 @@ cherry-studio
 | MCP (Tool Use) | `src/main/ai/mcp/` | — |
 | Knowledge (RAG) | `src/main/knowledge/` | [KnowledgeService](./knowledge/knowledge-service.md) |
 | Message System | `src/renderer/src/store/` | [Message System](./messaging/message-system.md) |
-| CherryClaw (Agent) | `src/main/ai/agents/cherryclaw/` | [CherryClaw Overview](./cherryclaw/overview.md) |
+| CherryClaw (Agent) | `src/main/ai/agents/cherryclaw/` | [CherryClaw Overview](./ai/cherryclaw/overview.md) |
 | API Server | `src/main/apiServer/` | [App Upgrade Config](./app-upgrade.md) |
 
 ## Window Architecture

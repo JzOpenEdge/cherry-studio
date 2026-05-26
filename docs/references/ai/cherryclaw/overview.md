@@ -1,7 +1,7 @@
 # CherryClaw Architecture
 
 <p align="center">
-  <img src="../../assets/images/cherryclaw.png" width="200" alt="CherryClaw" />
+  <img src="../../../assets/images/cherryclaw.png" width="200" alt="CherryClaw" />
 </p>
 
 CherryClaw is an autonomous agent type in Cherry Studio, built on the Claude Agent SDK. Unlike standard claude-code agents, CherryClaw has an independent personality system, task-based scheduler, IM channel integration, and a set of self-management tools provided through an internal MCP server.

@@ -78,10 +78,10 @@
 
 | Document | Description |
 |----------|-------------|
-| [CherryClaw Overview](./references/cherryclaw/overview.md) | Architecture, memory system, API |
-| [Channel System](./references/cherryclaw/channels.md) | IM integration (Telegram, etc.) |
-| [Claw MCP Server](./references/cherryclaw/mcp-claw.md) | Built-in MCP tools (cron, notify, skills, memory) |
-| [Scheduler](./references/cherryclaw/scheduler.md) | Task-based polling scheduler |
+| [CherryClaw Overview](./references/ai/cherryclaw/overview.md) | Architecture, memory system, API |
+| [Channel System](./references/ai/cherryclaw/channels.md) | IM integration (Telegram, etc.) |
+| [Claw MCP Server](./references/ai/cherryclaw/mcp-claw.md) | Built-in MCP tools (cron, notify, skills, memory) |
+| [Scheduler](./references/ai/cherryclaw/scheduler.md) | Task-based polling scheduler |
 
 ### Components
 
