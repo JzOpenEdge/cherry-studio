@@ -1,13 +1,11 @@
 import { parsePersistedLangCode, type TranslateLangCode } from '@shared/data/preference/preferenceTypes'
 import type { TranslateLanguage } from '@shared/data/types/translate'
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import TranslateLanguageBar from '../TranslateLanguageBar'
 
 const mockUseLanguages = vi.fn()
-const sourceLanguageButtonName = /translate\.source_language/
-const targetLanguageButtonName = /translate\.target_language/
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key })
@@ -20,10 +18,6 @@ vi.mock('@renderer/hooks/translate', () => ({
 vi.mock('@renderer/utils', () => ({
   cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' ')
 }))
-
-beforeAll(() => {
-  Element.prototype.scrollIntoView = vi.fn()
-})
 
 vi.mock('@cherrystudio/ui', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
@@ -130,7 +124,7 @@ describe('TranslateLanguageBar', () => {
     const props = baseProps()
     render(<TranslateLanguageBar {...props} />)
 
-    fireEvent.click(screen.getByRole('button', { name: sourceLanguageButtonName }))
+    fireEvent.click(screen.getByText('translate.source_language'))
 
     const options = screen.getAllByText('Chinese')
     fireEvent.click(options[0])
@@ -141,19 +135,23 @@ describe('TranslateLanguageBar', () => {
   it('exposes source dropdown options with listbox roles and selected state', () => {
     render(<TranslateLanguageBar {...baseProps()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: sourceLanguageButtonName }))
+    fireEvent.click(screen.getByText('translate.source_language'))
 
     const listbox = screen.getByRole('listbox')
     const autoOption = within(listbox).getByRole('option', { name: /translate\.detected\.language/ })
     expect(autoOption).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('does not render a search input for source languages', () => {
+  it('keeps selected option padding classes mutually exclusive', () => {
     render(<TranslateLanguageBar {...baseProps()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: sourceLanguageButtonName }))
+    fireEvent.click(screen.getByText('translate.source_language'))
 
-    expect(screen.queryByPlaceholderText('common.search')).not.toBeInTheDocument()
+    const selectedOption = screen.getByRole('option', { name: /translate\.detected\.language/ })
+    const optionContent = selectedOption.querySelector('span')
+
+    expect(optionContent?.className).toContain('px-2')
+    expect(optionContent?.className).not.toContain('px-3')
   })
 
   it('selects auto option', () => {
@@ -161,7 +159,7 @@ describe('TranslateLanguageBar', () => {
     props.sourceLanguage = english.langCode
     render(<TranslateLanguageBar {...props} />)
 
-    fireEvent.click(screen.getByRole('button', { name: sourceLanguageButtonName }))
+    fireEvent.click(screen.getByText('translate.source_language'))
     fireEvent.click(screen.getByText('translate.detected.language'))
 
     expect(props.onSourceChange).toHaveBeenCalledWith('auto')
@@ -192,25 +190,25 @@ describe('TranslateLanguageBar', () => {
     expect(container.textContent).toContain('English ⇆ Chinese')
 
     // Source trigger button is disabled
-    const sourceButton = screen.getByRole('button', { name: sourceLanguageButtonName })
+    const sourceButton = screen.getByText('translate.source_language').closest('button')
     expect(sourceButton).toHaveAttribute('disabled')
   })
 
   it('adds visible focus rings to language trigger buttons', () => {
     render(<TranslateLanguageBar {...baseProps()} />)
 
-    const sourceButton = screen.getByRole('button', { name: sourceLanguageButtonName })
-    const targetButton = screen.getByRole('button', { name: targetLanguageButtonName })
+    const sourceButton = screen.getByText('translate.source_language').closest('button')
+    const targetButton = screen.getByText('translate.target_language').closest('button')
 
-    expect(sourceButton?.className).toContain('focus-visible:ring')
-    expect(targetButton?.className).toContain('focus-visible:ring')
+    expect(sourceButton?.className).toContain('focus-visible:ring-2')
+    expect(targetButton?.className).toContain('focus-visible:ring-2')
   })
 
   it('opens target dropdown and calls onTargetChange on select', () => {
     const props = baseProps()
     render(<TranslateLanguageBar {...props} />)
 
-    fireEvent.click(screen.getByRole('button', { name: targetLanguageButtonName }))
+    fireEvent.click(screen.getByText('translate.target_language'))
 
     const list = screen.getAllByText('Japanese')
     fireEvent.click(list[0])
@@ -224,7 +222,7 @@ describe('TranslateLanguageBar', () => {
     render(<TranslateLanguageBar {...props} />)
 
     // Inside the source trigger the label contains "(Chinese)"
-    const sourceTrigger = screen.getByRole('button', { name: sourceLanguageButtonName })
-    expect(within(sourceTrigger).getByText(/translate\.detected\.language \(Chinese\)/)).toBeInTheDocument()
+    const sourceTrigger = screen.getByText('translate.source_language').closest('button')
+    expect(within(sourceTrigger!).getByText(/translate\.detected\.language \(Chinese\)/)).toBeInTheDocument()
   })
 })

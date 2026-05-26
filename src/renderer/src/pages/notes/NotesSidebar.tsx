@@ -6,14 +6,17 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from '@cherrystudio/ui'
-import { DynamicVirtualList, type DynamicVirtualListRef } from '@renderer/components/VirtualList'
+import { DynamicVirtualList } from '@renderer/components/VirtualList'
 import { useActiveNode } from '@renderer/hooks/useNotesQuery'
 import NotesSidebarHeader from '@renderer/pages/notes/NotesSidebarHeader'
+import { useAppSelector } from '@renderer/store'
+import { selectSortType } from '@renderer/store/note'
 import type { NotesSortType, NotesTreeNode } from '@renderer/types/note'
 import { FilePlus, Folder, FolderUp, Loader2, Upload, X } from 'lucide-react'
 import type { FC } from 'react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import styled from 'styled-components'
 
 import TreeNode from './components/TreeNode'
 import {
@@ -41,8 +44,6 @@ interface NotesSidebarProps {
   onSortNodes: (sortType: NotesSortType) => void
   onUploadFiles: (files: File[]) => void
   notesTree: NotesTreeNode[]
-  activeFilePath?: string
-  sortType: NotesSortType
   selectedFolderId?: string | null
 }
 
@@ -58,19 +59,18 @@ const NotesSidebar: FC<NotesSidebarProps> = ({
   onSortNodes,
   onUploadFiles,
   notesTree,
-  activeFilePath,
-  sortType,
   selectedFolderId
 }) => {
   const { t } = useTranslation()
-  const { activeNode } = useActiveNode(notesTree, activeFilePath)
+  const { activeNode } = useActiveNode(notesTree)
+  const sortType = useAppSelector(selectSortType)
   const [isShowStarred, setIsShowStarred] = useState(false)
   const [isShowSearch, setIsShowSearch] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [isDragOverSidebar, setIsDragOverSidebar] = useState(false)
 
   const notesTreeRef = useRef<NotesTreeNode[]>(notesTree)
-  const virtualListRef = useRef<DynamicVirtualListRef>(null)
+  const virtualListRef = useRef<any>(null)
   const trimmedSearchKeyword = useMemo(() => searchKeyword.trim(), [searchKeyword])
   const hasSearchKeyword = trimmedSearchKeyword.length > 0
 
@@ -240,7 +240,7 @@ const NotesSidebar: FC<NotesSidebarProps> = ({
   // Scroll to active node
   useEffect(() => {
     if (activeNode?.id && !isShowStarred && !isShowSearch && virtualListRef.current) {
-      const timer = setTimeout(() => {
+      setTimeout(() => {
         const activeIndex = flattenedNodes.findIndex(({ node }) => node.id === activeNode.id)
         if (activeIndex !== -1) {
           virtualListRef.current?.scrollToIndex(activeIndex, {
@@ -249,9 +249,7 @@ const NotesSidebar: FC<NotesSidebarProps> = ({
           })
         }
       }, 200)
-      return () => clearTimeout(timer)
     }
-    return undefined
   }, [activeNode?.id, isShowStarred, isShowSearch, flattenedNodes])
 
   // Determine which items should be sticky (only folders in normal view)
@@ -339,8 +337,7 @@ const NotesSidebar: FC<NotesSidebarProps> = ({
         <NotesEditingContext value={editingValue}>
           <NotesDragContext value={dragValue}>
             <NotesSearchContext value={searchValue}>
-              <div
-                className="relative isolate flex h-full min-h-0 w-62.5 min-w-62.5 flex-col rounded-tl-lg border-border border-r bg-background"
+              <SidebarContainer
                 onDragOver={(e) => {
                   e.preventDefault()
                   if (!draggedNodeId) {
@@ -366,22 +363,18 @@ const NotesSidebar: FC<NotesSidebarProps> = ({
                   onSelectSortType={handleSelectSortType}
                 />
 
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <NotesTreeContainer>
                   {isShowSearch && isSearching && (
-                    <div className="flex items-center gap-2 border-border border-b bg-muted px-3 py-2 text-muted-foreground text-xs">
+                    <SearchStatusBar>
                       <Loader2 size={14} className="animate-spin" />
                       <span>{t('notes.search.searching')}</span>
-                      <button
-                        type="button"
-                        className="ml-auto flex size-5 cursor-pointer items-center justify-center rounded-sm border-0 bg-transparent p-0 text-muted-foreground transition-all duration-200 hover:bg-accent hover:text-foreground active:bg-accent"
-                        onClick={cancel}
-                        title={t('common.cancel')}>
+                      <CancelButton onClick={cancel} title={t('common.cancel')}>
                         <X size={14} />
-                      </button>
-                    </div>
+                      </CancelButton>
+                    </SearchStatusBar>
                   )}
                   {isShowSearch && !isSearching && hasSearchKeyword && searchStats.total > 0 && (
-                    <div className="flex items-center gap-2 border-border border-b bg-muted px-3 py-2 text-muted-foreground text-xs">
+                    <SearchStatusBar>
                       <span>
                         {t('notes.search.found_results', {
                           count: searchStats.total,
@@ -389,7 +382,7 @@ const NotesSidebar: FC<NotesSidebarProps> = ({
                           contentCount: searchStats.contentMatches + searchStats.bothMatches
                         })}
                       </span>
-                    </div>
+                    </SearchStatusBar>
                   )}
                   <ContextMenu>
                     <ContextMenuTrigger asChild>
@@ -407,7 +400,7 @@ const NotesSidebar: FC<NotesSidebarProps> = ({
                     <ContextMenuContent>{renderEmptyAreaMenuItems()}</ContextMenuContent>
                   </ContextMenu>
                   {!isShowStarred && !isShowSearch && (
-                    <div className="mt-1.5 mb-3 px-2">
+                    <div style={{ padding: '0 8px', marginTop: '6px', marginBottom: '12px' }}>
                       <TreeNode
                         node={{
                           id: 'hint-node',
@@ -424,12 +417,10 @@ const NotesSidebar: FC<NotesSidebarProps> = ({
                       />
                     </div>
                   )}
-                </div>
+                </NotesTreeContainer>
 
-                {isDragOverSidebar && (
-                  <div className="pointer-events-none absolute inset-0 rounded border-2 border-primary border-dashed bg-primary/10" />
-                )}
-              </div>
+                {isDragOverSidebar && <DragOverIndicator />}
+              </SidebarContainer>
             </NotesSearchContext>
           </NotesDragContext>
         </NotesEditingContext>
@@ -437,5 +428,94 @@ const NotesSidebar: FC<NotesSidebarProps> = ({
     </NotesActionsContext>
   )
 }
+
+export const SidebarContainer = styled.div`
+  width: 250px;
+  min-width: 250px;
+  height: calc(100vh - var(--navbar-height));
+  background-color: var(--color-background);
+  border-right: 0.5px solid var(--color-border);
+  border-top-left-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  isolation: isolate;
+`
+
+export const NotesTreeContainer = styled.div`
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--navbar-height) - 45px);
+`
+
+export const DragOverIndicator = styled.div`
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-color: rgba(0, 123, 255, 0.1);
+  border: 2px dashed rgba(0, 123, 255, 0.6);
+  border-radius: 4px;
+  pointer-events: none;
+`
+
+export const DropHintText = styled.div`
+  color: var(--color-text-3);
+  font-size: 12px;
+  font-style: italic;
+`
+
+// 搜索相关样式
+export const SearchStatusBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--color-background-soft);
+  border-bottom: 0.5px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-text-2);
+
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`
+
+export const CancelButton = styled.button`
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background-color: transparent;
+  color: var(--color-text-3);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: var(--color-background-mute);
+    color: var(--color-text);
+  }
+
+  &:active {
+    background-color: var(--color-active);
+  }
+`
 
 export default memo(NotesSidebar)

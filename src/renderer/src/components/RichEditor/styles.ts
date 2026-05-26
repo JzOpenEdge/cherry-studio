@@ -83,7 +83,6 @@ const STYLE_CONTENT = `
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--color-foreground);
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
@@ -94,8 +93,8 @@ const STYLE_CONTENT = `
 }
 
 .ToolbarButton.is-active {
-  background: var(--color-muted);
-  color: var(--color-foreground);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
 }
 
 .ToolbarButton:disabled,
@@ -424,16 +423,7 @@ type ToolbarButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const useRichEditorStyleSheet = () => {
   useInsertionEffect(() => {
-    if (typeof document === 'undefined') {
-      return
-    }
-
-    const existingStyle = document.getElementById(STYLE_ID)
-
-    if (existingStyle) {
-      if (existingStyle.textContent !== STYLE_CONTENT) {
-        existingStyle.textContent = STYLE_CONTENT
-      }
+    if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) {
       return
     }
 
@@ -493,7 +483,6 @@ export const ToolbarButton = ({
   $disabled,
   className,
   disabled,
-  style,
   ...props
 }: ToolbarButtonProps & { ref?: Ref<HTMLButtonElement> }) => {
   useRichEditorStyleSheet()
@@ -501,8 +490,7 @@ export const ToolbarButton = ({
     ...props,
     ref,
     disabled,
-    className: cn('ToolbarButton', $active && 'is-active', $disabled && 'is-disabled', className),
-    style: $active ? { ...style, background: 'var(--color-muted)', color: 'var(--color-foreground)' } : style
+    className: cn('ToolbarButton', $active && 'is-active', $disabled && 'is-disabled', className)
   })
 }
 ToolbarButton.displayName = 'ToolbarButton'

@@ -1,4 +1,4 @@
-import { Button, Input, Slider, Switch } from '@cherrystudio/ui'
+import { Button, Switch } from '@cherrystudio/ui'
 import { loggerService } from '@logger'
 import Selector from '@renderer/components/Selector'
 import { useTheme } from '@renderer/context/ThemeProvider'
@@ -13,10 +13,12 @@ import {
   SettingTitle
 } from '@renderer/pages/settings'
 import type { EditorView } from '@renderer/types'
+import { Input, Slider } from 'antd'
 import { FolderOpen } from 'lucide-react'
 import type { FC } from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import styled from 'styled-components'
 
 const logger = loggerService.withContext('NotesSettings')
 
@@ -97,8 +99,8 @@ const NotesSettings: FC = () => {
         <SettingRow>
           <SettingRowTitle>{t('notes.settings.data.current_work_directory')}</SettingRowTitle>
         </SettingRow>
-        <div className="mt-2 flex flex-col gap-3">
-          <div className="flex w-full items-center">
+        <WorkDirectorySection>
+          <PathInputContainer>
             <Input
               value={tempPath}
               onChange={(e) => setTempPath(e.target.value)}
@@ -109,14 +111,14 @@ const NotesSettings: FC = () => {
               <FolderOpen size={16} />
               {t('notes.settings.data.select')}
             </Button>
-          </div>
-          <div className="flex items-center gap-2 self-start">
+          </PathInputContainer>
+          <ActionButtons>
             <Button onClick={handleApplyPath} disabled={!isPathChanged}>
               {t('notes.settings.data.apply')}
             </Button>
             <Button onClick={handleResetToDefault}>{t('notes.settings.data.reset_to_default')}</Button>
-          </div>
-        </div>
+          </ActionButtons>
+        </WorkDirectorySection>
         <SettingRow>
           <SettingHelpText>{t('notes.settings.data.work_directory_description')}</SettingHelpText>
         </SettingRow>
@@ -146,8 +148,8 @@ const NotesSettings: FC = () => {
               { label: t('notes.settings.editor.edit_mode.preview_mode'), value: 'preview' },
               { label: t('notes.settings.editor.edit_mode.source_mode'), value: 'source' }
             ]}
-            value={settings.defaultEditMode}
-            onChange={(value: Exclude<EditorView, 'read'>) => updateSettings({ defaultEditMode: value })}
+            value={settings.defaultEditMode as string}
+            onChange={(value: Omit<EditorView, 'read'>) => updateSettings({ defaultEditMode: value })}
           />
         </SettingRow>
         <SettingHelpText>{t('notes.settings.editor.edit_mode.description')}</SettingHelpText>
@@ -168,16 +170,16 @@ const NotesSettings: FC = () => {
         <SettingDivider />
         <SettingRow>
           <SettingRowTitle>{t('notes.settings.display.font_size')}</SettingRowTitle>
-          <div className="flex items-center">
+          <FontSizeContainer>
             <Slider
               min={10}
               max={30}
-              value={[settings.fontSize]}
-              onValueChange={(value) => updateSettings({ fontSize: value[0] ?? settings.fontSize })}
-              className="mr-4 w-50"
+              value={settings.fontSize}
+              onChange={(value) => updateSettings({ fontSize: value })}
+              style={{ width: 200, marginRight: 16 }}
             />
-            <span className="min-w-10 text-muted-foreground text-sm">{settings.fontSize}px</span>
-          </div>
+            <FontSizeValue>{settings.fontSize}px</FontSizeValue>
+          </FontSizeContainer>
         </SettingRow>
         <SettingHelpText>{t('notes.settings.display.font_size_description')}</SettingHelpText>
         <SettingDivider />
@@ -193,5 +195,35 @@ const NotesSettings: FC = () => {
     </SettingContainer>
   )
 }
+
+const WorkDirectorySection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+`
+
+const PathInputContainer = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
+`
+
+const ActionButtons = styled.div`
+  display: flex;
+  gap: 8px;
+  align-self: flex-start;
+`
+
+const FontSizeContainer = styled.div`
+  display: flex;
+  align-items: center;
+`
+
+const FontSizeValue = styled.span`
+  min-width: 40px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+`
 
 export default NotesSettings

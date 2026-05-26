@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import TranslateOutputPane from '../TranslateOutputPane'
@@ -21,32 +21,36 @@ const baseProps = () => ({
   enableMarkdown: false,
   translating: false,
   copied: false,
+  couldTranslate: true,
   onCopy: vi.fn(),
+  onTranslate: vi.fn(),
+  onAbort: vi.fn(),
   onScroll: vi.fn()
 })
 
 describe('TranslateOutputPane', () => {
-  it('renders no placeholder when there is no translated content', () => {
-    render(<TranslateOutputPane {...baseProps()} />)
-
-    expect(screen.queryByText('translate.output.placeholder')).not.toBeInTheDocument()
-  })
-
-  it('shows the processing indicator while translating with no content yet', () => {
+  it('uses bg-secondary for abort button when translating and preserves lucide-custom icon class', () => {
     const props = baseProps()
     props.translating = true
+    props.translatedContent = 'partial output'
 
     render(<TranslateOutputPane {...props} />)
 
-    expect(screen.getByText('translate.processing')).toBeInTheDocument()
+    const stopButton = screen.getByRole('button', { name: 'common.stop' })
+    expect(stopButton.className).toContain('bg-secondary')
+    expect(stopButton.className).not.toContain('bg-destructive')
+    expect(stopButton.querySelector('svg')?.className.baseVal).toContain('lucide-custom')
   })
 
-  it('renders the character count', () => {
+  it('keeps translate action icon using lucide-custom class', () => {
     const props = baseProps()
-    props.translatedContent = 'hello'
+    props.couldTranslate = true
 
     render(<TranslateOutputPane {...props} />)
 
-    expect(screen.getByText('5')).toBeInTheDocument()
+    const translateButton = screen.getByRole('button', { name: 'translate.button.translate' })
+    expect(translateButton.querySelector('svg')?.className.baseVal).toContain('lucide-custom')
+    fireEvent.click(translateButton)
+    expect(props.onTranslate).toHaveBeenCalledTimes(1)
   })
 })
