@@ -9,7 +9,6 @@ import { agentGlobalSkillTable } from '@data/db/schemas/agentGlobalSkill'
 import { agentSessionTable } from '@data/db/schemas/agentSession'
 import { agentSessionMessageTable } from '@data/db/schemas/agentSessionMessage'
 import { agentSkillTable } from '@data/db/schemas/agentSkill'
-import { agentTaskRunLogTable, agentTaskTable } from '@data/db/schemas/agentTask'
 import { appStateTable } from '@data/db/schemas/appState'
 import { assistantTable } from '@data/db/schemas/assistant'
 import { assistantKnowledgeBaseTable, assistantMcpServerTable } from '@data/db/schemas/assistantRelations'
@@ -17,7 +16,6 @@ import { knowledgeBaseTable, knowledgeItemTable } from '@data/db/schemas/knowled
 import { mcpServerTable } from '@data/db/schemas/mcpServer'
 import { messageTable } from '@data/db/schemas/message'
 import { miniAppTable } from '@data/db/schemas/miniApp'
-import { noteTable } from '@data/db/schemas/note'
 import { pinTable } from '@data/db/schemas/pin'
 import { preferenceTable } from '@data/db/schemas/preference'
 import { promptTable } from '@data/db/schemas/prompt'
@@ -26,6 +24,7 @@ import { translateHistoryTable } from '@data/db/schemas/translateHistory'
 import { translateLanguageTable } from '@data/db/schemas/translateLanguage'
 import { userModelTable } from '@data/db/schemas/userModel'
 import { userProviderTable } from '@data/db/schemas/userProvider'
+import { workspaceTable } from '@data/db/schemas/workspace'
 import type { DbType } from '@data/db/types'
 import { loggerService } from '@logger'
 import type {
@@ -313,7 +312,6 @@ export class MigrationEngine {
       { table: mcpServerTable, name: 'mcp_server' },
       { table: miniAppTable, name: 'mini_app' },
       { table: preferenceTable, name: 'preference' },
-      { table: noteTable, name: 'note' },
       { table: translateHistoryTable, name: 'translate_history' },
       { table: translateLanguageTable, name: 'translate_language' },
       { table: knowledgeItemTable, name: 'knowledge_item' }, // Must clear before knowledge_base (FK reference)
@@ -322,13 +320,15 @@ export class MigrationEngine {
       // Agents-domain tables — child → parent order
       { table: agentSessionMessageTable, name: 'agent_session_message' },
       { table: agentChannelTaskTable, name: 'agent_channel_task' },
-      { table: agentTaskRunLogTable, name: 'agent_task_run_log' },
       { table: agentChannelTable, name: 'agent_channel' },
-      { table: agentTaskTable, name: 'agent_task' },
       { table: agentSkillTable, name: 'agent_skill' },
       { table: agentSessionTable, name: 'agent_session' },
+      { table: workspaceTable, name: 'agent_workspace' },
       { table: agentGlobalSkillTable, name: 'agent_global_skill' },
       { table: agentTable, name: 'agent' }
+      // NOTE: jobScheduleTable rows for type='agent.task' are pruned at the
+      // start of AgentsMigrator.migrateScheduledTasksTs (per-type, not whole
+      // table) so other handlers' schedules survive a migration retry.
       // TODO: Add fileTable when created
     ]
 

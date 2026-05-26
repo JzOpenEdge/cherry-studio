@@ -31,14 +31,16 @@ import type { MCPServerSchemas } from './mcpServers'
 import type { MessageSchemas } from './messages'
 import type { MiniAppSchemas } from './miniApps'
 import type { ModelSchemas } from './models'
-import type { NoteSchemas } from './notes'
 import type { PinSchemas } from './pins'
 import type { PromptSchemas } from './prompts'
 import type { ProviderSchemas } from './providers'
+import type { SessionSchemas } from './sessions'
+import type { SkillSchemas } from './skills'
 import type { TagSchemas } from './tags'
 import type { TemporaryChatSchemas } from './temporaryChats'
 import type { TopicSchemas } from './topics'
 import type { TranslateSchemas } from './translate'
+import type { WorkspaceSchemas } from './workspaces'
 
 /**
  * Merged API Schemas - single source of truth for all API endpoints
@@ -63,13 +65,15 @@ export type ApiSchemas = AssertValidSchemas<
     MCPServerSchemas &
     KnowledgeSchemas &
     MiniAppSchemas &
-    NoteSchemas &
     AssistantSchemas &
     TagSchemas &
     PromptSchemas &
     GroupSchemas &
     PinSchemas &
     AgentSchemas &
+    SkillSchemas &
+    SessionSchemas &
+    WorkspaceSchemas &
     AgentChannelSchemas &
     JobSchemas
 >
