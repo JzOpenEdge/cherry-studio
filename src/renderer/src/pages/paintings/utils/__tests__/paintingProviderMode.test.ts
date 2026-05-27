@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { zhipuProvider } from '../../providers/coreProviders'
-import { ppioProvider } from '../../providers/ppio'
+import { providerRegistry } from '../../providers/registry'
 import { resolvePaintingTabForMode } from '../paintingProviderMode'
 
 describe('resolvePaintingTabForMode', () => {
+  const ppioProvider = providerRegistry.ppio
+  const zhipuProvider = providerRegistry.zhipu
+
   it('returns the matching tab when a provider supports the requested db mode', () => {
     expect(resolvePaintingTabForMode(ppioProvider, 'generate')).toBe('generate')
   })
