@@ -3,7 +3,6 @@ import { createPaintingGenerateError } from '@renderer/aiCore/errors/paintingGen
 import { canonicalGenerate } from '../../model/canonicalGenerate'
 import type { AihubmixPaintingData } from '../../model/types/paintingData'
 import type { GenerateInput } from '../types'
-import { getAihubmixUploadedFile } from './imageUpload'
 
 /**
  * Unified AiHubMix painting adapter on the composed AI-SDK-native
@@ -159,16 +158,25 @@ export async function generateWithAihubmixUnified(input: GenerateInput) {
   const { tab } = input
   const mode = tab as 'generate' | 'remix' | 'upscale'
 
-  // Pre-fetch the upload blob synchronously so providerBag (which
-  // canonicalGenerate invokes sync) hands it off by reference.
+  // remix / upscale tabs need an image attached through the prompt-box
+  // attachment surface (the in-memory File map was retired). The bytes are
+  // read off the v2 file IPC and the synchronous `providerBag` callback
+  // forwards them by reference.
   let imageFiles: ImageFileBlob[] | undefined
   if (mode === 'remix' || mode === 'upscale') {
-    if (!painting.imageFile) throw createPaintingGenerateError('IMAGE_REQUIRED')
-    const uploadFile = getAihubmixUploadedFile(painting.imageFile)
-    if (!uploadFile) throw createPaintingGenerateError('IMAGE_RETRY_REQUIRED')
-    imageFiles = [
-      { mediaType: uploadFile.type, data: new Uint8Array(await uploadFile.arrayBuffer()), name: uploadFile.name }
-    ]
+    const inputFiles = painting.inputFiles ?? []
+    if (inputFiles.length === 0) throw createPaintingGenerateError('IMAGE_REQUIRED')
+    imageFiles = await Promise.all(
+      inputFiles.map(async (entry) => {
+        const onDiskName = `${entry.id}${entry.ext ? `.${entry.ext}` : ''}`
+        const result = await window.api.file.binaryImage(onDiskName)
+        return {
+          mediaType: result.mime || 'application/octet-stream',
+          data: new Uint8Array(result.data),
+          name: `${entry.name}${entry.ext ? `.${entry.ext}` : ''}`
+        }
+      })
+    )
   }
 
   return canonicalGenerate(narrowedInput, {

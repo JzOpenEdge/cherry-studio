@@ -5,7 +5,6 @@ import { loadPaintingModelOptions } from '../../model/utils/paintingModelOptions
 import type { PaintingProvider } from '../types'
 import { createDefaultAihubmixPainting } from './defaults'
 import { generateWithAihubmixUnified } from './generateUnified'
-import { aihubmixImagePlaceholder, getAihubmixPreviewSrc, handleAihubmixImageUpload } from './imageUpload'
 import { getStaticModelsForAihubmixMode } from './models'
 
 export const aihubmixProvider = {
@@ -51,12 +50,6 @@ export const aihubmixProvider = {
       }
       return i18n.t('paintings.prompt_placeholder_edit')
     }
-  },
-  image: {
-    onUpload: ({ key, file, patchPainting, painting }) =>
-      handleAihubmixImageUpload(key, file, patchPainting, getAihubmixPreviewSrc(key, painting ?? ({} as PaintingData))),
-    getPreviewSrc: ({ key, painting }) => getAihubmixPreviewSrc(key, painting),
-    placeholder: aihubmixImagePlaceholder
   },
   generate: (input) => generateWithAihubmixUnified(input)
 } satisfies PaintingProvider<PaintingData>
