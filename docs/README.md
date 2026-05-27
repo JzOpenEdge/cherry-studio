@@ -24,10 +24,7 @@
 
 | Document | Description |
 |----------|-------------|
-| [AI Reference](./references/ai/README.md) | Main-process AI pipeline: stream manager, agent loop, providers, tools |
-| [Core Architecture](./references/ai/core-architecture.md) | End-to-end call flow from user input to LLM response |
-| [Stream Manager](./references/ai/stream-manager.md) | Active-stream registry, broker, reconnect, persistence |
-| [Adapter Family](./references/ai/adapter-family.md) | How endpoint → `@ai-sdk/*` package routing is decided |
+| [AI Core Architecture](./references/ai-core-architecture.md) | Complete data flow and architecture from user input to LLM response |
 
 ### Data System
 

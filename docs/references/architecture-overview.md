@@ -130,7 +130,7 @@ User Message
   └── Response Pipeline ──→ Message blocks (text, code, image, tool-call)
 ```
 
-See [AI Reference](./ai/README.md) for the complete data flow.
+See [AI Core Architecture](./ai-core-architecture.md) for the complete data flow.
 
 ## Monorepo Structure
 
@@ -142,7 +142,7 @@ cherry-studio
 │   │   ├── data/                #   Data layer (DB, Cache, Preference, DataApi)
 │   │   ├── services/            #   27 lifecycle-managed services
 │   │   ├── knowledge/           #   RAG / knowledge base
-│   │   ├── ai/mcp/servers/      #   Built-in MCP servers
+│   │   ├── mcpServers/          #   Built-in MCP servers
 │   │   ├── apiServer/           #   Local REST API (Express)
 │   │   └── integration/         #   External integrations
 │   │
@@ -179,8 +179,8 @@ cherry-studio
 |-----------|----------|---------------|
 | Service Lifecycle | `src/main/core/lifecycle/` | [Lifecycle Reference](./lifecycle/README.md) |
 | Data Layer | `src/main/data/` | [Data Reference](./data/README.md) |
-| AI Core | `src/main/ai/` | [AI Reference](./ai/README.md) |
-| MCP (Tool Use) | `src/main/ai/mcp/` | — |
+| AI Core | `src/renderer/src/aiCore/` | [AI Core Architecture](./ai-core-architecture.md) |
+| MCP (Tool Use) | `src/main/services/mcp/` | — |
 | Knowledge (RAG) | `src/main/knowledge/` | [KnowledgeService](./knowledge/knowledge-service.md) |
 | Message System | `src/renderer/src/store/` | [Message System](./messaging/message-system.md) |
 | CherryClaw (Agent) | `src/main/services/agents/` | [CherryClaw Overview](./cherryclaw/overview.md) |
