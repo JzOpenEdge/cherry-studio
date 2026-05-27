@@ -7,50 +7,40 @@ import { resolveCogviewSize } from '../model/validators/cogviewSize'
 import { createSingleModeProvider, type PaintingProviderDefinition } from './shared/provider'
 
 /**
- * Core painting providers — small, registry-backed adapters that don't ship
- * their own UI components or vendor-specific transport tables. Each one
- * declares only the bits that can't be derived from the provider-registry:
- * AI-SDK fieldMap aliases, a `noAuth` flag, a vendor-specific image-size
- * resolver, or a snake-case `providerBag` mirror. Everything else (model
- * dropdown, form fields, defaults) flows through the shared registry path.
+ * Core painting providers — small, registry-backed adapters with no UI
+ * components and no vendor-specific transport routing tables. Each entry
+ * declares only its `canonicalGenerate` options (AI-SDK fieldMap aliases,
+ * vendor-specific resolvers, snake-case providerBag mirror); the rest of
+ * the provider (`id`, `models` loader, `createPaintingData`, etc.) is
+ * pure mechanical wiring.
  *
- * Providers in this file: silicon, zhipu, ovms. Adding a new vendor here is
- * a ~10-line entry rather than a 5-file directory.
- *
- * Providers NOT in this file still ship their own directories because they
- * carry vendor UI components (newapi `NewApiSetting`, dmxapi `DmxapiSetting`,
- * tokenflux `TokenFluxCenterContent` / `TokenFluxSetting`) or vendor-specific
- * transport routing tables (aihubmix `MODEL_PARAM_RULES`, ppio `PPIO_MODELS`).
+ * Empty-state handling (no model selected → prompt disabled), auth gating
+ * (`checkProviderEnabled` knows OVMS runs without an API key), and form
+ * empty-state are cross-cutting concerns — they no longer live here.
  */
 
-const generateSiliconRandomSeed = () => Math.floor(Math.random() * 1000000).toString()
-
-const SENTINEL_OVMS_MODEL_VALUE = 'none'
+const baseCreatePaintingData = <T extends { providerId: string }>(
+  providerId: T['providerId'],
+  modelOptions: { value: string }[] | undefined
+) =>
+  ({
+    id: uuid(),
+    providerId,
+    mode: 'generate' as const,
+    files: [],
+    prompt: '',
+    model: modelOptions?.[0]?.value ?? ''
+  }) as unknown as T
 
 export const siliconProvider: PaintingProviderDefinition = createSingleModeProvider<SiliconPaintingData>({
   id: 'silicon',
   dbMode: 'generate',
-  models: {
-    type: 'async',
-    loader: () => loadPaintingModelOptions('silicon')
-  },
-  // Random `seed` is kept as an active feature (the user can read the value
-  // off the form and reuse it for reproducible reruns); every other knob is
-  // left unset so the registry's per-model defaults govern.
-  createPaintingData: ({ modelOptions }) => ({
-    id: uuid(),
-    providerId: 'silicon',
-    mode: 'generate',
-    files: [],
-    prompt: '',
-    seed: generateSiliconRandomSeed(),
-    model: modelOptions?.[0]?.value ?? ''
-  }),
+  models: { type: 'async', loader: () => loadPaintingModelOptions('silicon') },
+  createPaintingData: ({ modelOptions }) => baseCreatePaintingData<SiliconPaintingData>('silicon', modelOptions),
   fields: [],
-  // Silicon persists `imageSize` and `steps`; canonical AI-SDK names are
-  // `imageSize` (identical) and `numInferenceSteps`. The registryKeyMap
-  // shapes the form's canonical→stored aliasing; the fieldMap below
-  // shapes the executor's AI-SDK→stored aliasing.
+  // Silicon persists `imageSize` / `steps` instead of the canonical
+  // `size` / `numInferenceSteps`. Both aliases live here until the
+  // `PaintingData` union shrink lets the renderer use canonical names.
   registryKeyMap: { size: 'imageSize', numInferenceSteps: 'steps' },
   onModelChange: ({ modelId }) => ({ model: modelId }),
   generate: (input) => canonicalGenerate(input, { fieldMap: { batchSize: 'numImages', numInferenceSteps: 'steps' } })
@@ -59,63 +49,33 @@ export const siliconProvider: PaintingProviderDefinition = createSingleModeProvi
 export const zhipuProvider: PaintingProviderDefinition = createSingleModeProvider<ZhipuPaintingData>({
   id: 'zhipu',
   dbMode: 'generate',
-  models: {
-    type: 'async',
-    loader: () => loadPaintingModelOptions('zhipu')
-  },
-  createPaintingData: ({ modelOptions }) => ({
-    id: uuid(),
-    providerId: 'zhipu',
-    mode: 'generate',
-    files: [],
-    prompt: '',
-    model: modelOptions?.[0]?.value ?? ''
-  }),
+  models: { type: 'async', loader: () => loadPaintingModelOptions('zhipu') },
+  createPaintingData: ({ modelOptions }) => baseCreatePaintingData<ZhipuPaintingData>('zhipu', modelOptions),
   fields: [],
-  // PaintingData persists size as `imageSize`. CogView's custom-size rules
-  // (range / divisible-by-16 / pixel-budget / required-when-mode=custom)
-  // live in `resolveCogviewSize`.
   registryKeyMap: { size: 'imageSize' },
   onModelChange: ({ modelId }) => ({ model: modelId }),
+  // CogView's custom-size rules (range / divisible-by-16 / pixel-budget /
+  // required-when-mode=custom) live in `resolveCogviewSize` — until the
+  // registry schema can express those constraints declaratively.
   generate: (input) =>
-    canonicalGenerate(input, {
-      fieldMap: { batchSize: 'numImages' },
-      resolvers: { imageSize: resolveCogviewSize }
-    })
+    canonicalGenerate(input, { fieldMap: { batchSize: 'numImages' }, resolvers: { imageSize: resolveCogviewSize } })
 })
 
 export const ovmsProvider: PaintingProviderDefinition = createSingleModeProvider<OvmsPaintingData>({
   id: 'ovms',
   dbMode: 'generate',
-  models: {
-    type: 'async',
-    loader: () => loadPaintingModelOptions('ovms')
-  },
-  createPaintingData: ({ modelOptions }) => ({
-    id: uuid(),
-    providerId: 'ovms',
-    mode: 'generate',
-    files: [],
-    prompt: '',
-    model: modelOptions?.[0]?.value || SENTINEL_OVMS_MODEL_VALUE
-  }),
-  // Form fields come from the registry's provider-level `paintingDefaults`
-  // (packages/provider-registry/data/providers.json) — OVMS users register
-  // arbitrary local checkpoints, so per-model entries can't be enumerated,
-  // but the API contract (size / num_inference_steps / rng_seed) is fixed
-  // provider-wide.
+  models: { type: 'async', loader: () => loadPaintingModelOptions('ovms') },
+  createPaintingData: ({ modelOptions }) => baseCreatePaintingData<OvmsPaintingData>('ovms', modelOptions),
   fields: [],
   onModelChange: ({ modelId }) => ({ model: modelId }),
-  prompt: {
-    disabled: ({ painting, isLoading }) => isLoading || !painting.model || painting.model === SENTINEL_OVMS_MODEL_VALUE
-  },
-  // OVMS is auth-less (local OpenVINO Model Server) — `noAuth: true` skips
-  // `checkProviderEnabled`. The bespoke snake-case extras (`num_inference_steps`,
-  // `rng_seed`) go through `providerBag` since they don't fit the canonical
-  // AI-SDK aiSdkParams shape.
+  // Form fields come from the registry's provider-level `paintingDefaults`
+  // (packages/provider-registry/data/providers.json) — OVMS users register
+  // arbitrary local checkpoints, so per-model entries can't be enumerated.
+  // OVMS uses snake-case wire params (`num_inference_steps` / `rng_seed`);
+  // the providerBag mirrors those onto the canonical names the transport
+  // adapter reads. `checkProviderEnabled` knows OVMS is auth-less.
   generate: (input) =>
     canonicalGenerate(input, {
-      noAuth: true,
       fieldMap: { imageSize: 'size' },
       providerBag: (painting) => ({
         model: painting.model,

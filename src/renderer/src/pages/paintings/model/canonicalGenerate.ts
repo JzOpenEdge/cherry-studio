@@ -72,12 +72,6 @@ export interface CanonicalGenerateOptions<T extends PaintingData> {
    */
   downloadOptions?: DownloadImagesOptions
   /**
-   * Skip `checkProviderEnabled` and pass an empty `apiKey`. For vendors
-   * that run without auth (OVMS, local OpenVINO Model Server). The
-   * `isEnabled` and `getApiKey()` modal flow is bypassed.
-   */
-  noAuth?: boolean
-  /**
    * Whether `painting.prompt` must be non-empty. Default `true` (matches
    * the standard `PROMPT_REQUIRED` throw). Pass `false` (or a callback
    * returning `false`) for providers whose specific models accept empty
@@ -138,7 +132,7 @@ export async function canonicalGenerate<T extends PaintingData>(
   // (e.g. dmxapi's `TEXT_DESC_REQUIRED` / `IMAGE_HANDLE_REQUIRED`).
   options.preValidate?.(painting)
 
-  const apiKey = options.noAuth ? '' : await checkProviderEnabled(provider)
+  const apiKey = await checkProviderEnabled(provider)
   const modelId = painting.model
   if (!modelId) throw createPaintingGenerateError('MISSING_REQUIRED_FIELDS')
   const prompt = (painting.prompt ?? '').trim()

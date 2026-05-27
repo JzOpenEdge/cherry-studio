@@ -54,7 +54,12 @@ const PaintingPromptBar: FC<PaintingPromptBarProps> = ({
   const { t } = useTranslation()
   const definition = useMemo(() => resolvePaintingProviderDefinition(painting.providerId), [painting.providerId])
   const placeholder = definition.prompt?.placeholder?.({ painting }) ?? t('paintings.prompt_placeholder')
-  const disabled = definition.prompt?.disabled?.({ painting, isLoading: generating }) ?? generating
+  // Empty-state handling lives here (not per-vendor): the prompt is disabled
+  // whenever there's no model selected, regardless of provider. Loading and
+  // any vendor-specific predicate (`definition.prompt.disabled`) layer on top.
+  const hasModel = Boolean(painting.model)
+  const vendorDisabled = definition.prompt?.disabled?.({ painting, isLoading: generating }) ?? false
+  const disabled = generating || !hasModel || vendorDisabled
 
   const support = useImageGenerationSupport(painting.providerId, painting.model)
   const acceptsImageInput = useMemo(() => modelAcceptsImageInput(support?.modes), [support])
