@@ -24,14 +24,17 @@ type AihubmixMode = 'generate' | 'remix' | 'upscale'
 type ImageFileBlob = { mediaType: string; data: Uint8Array; name: string }
 
 interface ResolvedModelParams {
-  imageSize: string
-  batchSize: number
-  safetyTolerance: number | undefined
+  imageSize: string | undefined
+  batchSize: number | undefined
 }
 
-const aspectRatioSize = (p: AihubmixPaintingData) => p.aspectRatio?.replace('ASPECT_', '').replace('_', ':') || '1:1'
-const pixelSize = (p: AihubmixPaintingData) => (p.size && p.size !== 'auto' ? p.size : '1024x1024')
-const numImagesBatch = (p: AihubmixPaintingData) => p.numImages ?? p.n ?? 1
+// Imagen accepts aspect ratio in `X:Y` form on the wire while the form
+// persists Google's enum spelling `ASPECT_X_Y`. The transform is what makes
+// the imagen models a separate rule below; everything else is pure routing.
+const aspectRatioSize = (p: AihubmixPaintingData): string | undefined =>
+  p.aspectRatio ? p.aspectRatio.replace('ASPECT_', '').replace('_', ':') : undefined
+const pixelSize = (p: AihubmixPaintingData): string | undefined => (p.size && p.size !== 'auto' ? p.size : undefined)
+const numImagesBatch = (p: AihubmixPaintingData): number | undefined => p.numImages ?? p.n
 
 /**
  * Per-model-family parameter shaping. First rule whose `match` passes wins;
@@ -47,44 +50,38 @@ const numImagesBatch = (p: AihubmixPaintingData) => p.numImages ?? p.n ?? 1
  * validation. Canonical AI-SDK fields (size/n/quality/background/moderation)
  * flow via `aiSdkParams` + `buildImageProviderOptions` — they do NOT need
  * to be in the bag.
+ *
+ * Empty PaintingData fields stay empty — the server / model applies its
+ * own defaults rather than the client imposing one.
  */
 const MODEL_PARAM_RULES: ReadonlyArray<{
   match?: (modelId: string) => boolean
   resolve: (p: AihubmixPaintingData) => ResolvedModelParams
   buildBag: (p: AihubmixPaintingData, mode: AihubmixMode, imageFiles?: ImageFileBlob[]) => Record<string, unknown>
 }> = [
-  // Imagen-4 ultra — single image, aspectRatio via aiSdkParams.imageSize.
-  // personGeneration travels in the bag (aihubmix routes imagen through
-  // OpenAICompatibleImageModel; personGeneration isn't a canonical aiSdkParams
-  // field for aihubmix in buildImageProviderOptions).
-  {
-    match: (id) => id.startsWith('imagen-4.0-ultra-generate'),
-    resolve: (p) => ({ imageSize: aspectRatioSize(p), batchSize: 1, safetyTolerance: p.safetyTolerance }),
-    buildBag: (p) => (p.personGeneration ? { personGeneration: p.personGeneration } : {})
-  },
+  // Imagen — aspectRatio flows into aiSdkParams.imageSize (Google's API
+  // accepts the ratio in that slot). personGeneration travels in the bag
+  // because aihubmix routes imagen through OpenAICompatibleImageModel and
+  // personGeneration isn't a canonical aiSdkParams field for aihubmix in
+  // `buildImageProviderOptions`. imagen-4 ultra is a single-image model;
+  // the form clamps batch via the registry's `batch` block (no UI exposes
+  // a count chip), so painting.numberOfImages stays undefined and the
+  // server falls back to its own default.
   {
     match: (id) => id.startsWith('imagen-'),
-    resolve: (p) => ({
-      imageSize: aspectRatioSize(p),
-      batchSize: p.numberOfImages || 1,
-      safetyTolerance: p.safetyTolerance
-    }),
+    resolve: (p) => ({ imageSize: aspectRatioSize(p), batchSize: p.numberOfImages }),
     buildBag: (p) => (p.personGeneration ? { personGeneration: p.personGeneration } : {})
   },
   // FLUX — needs safety_tolerance in body (snake_case, not in aiSdkParams).
   {
     match: (id) => id === 'FLUX.1-Kontext-pro',
-    resolve: (p) => ({
-      imageSize: pixelSize(p),
-      batchSize: numImagesBatch(p),
-      safetyTolerance: p.safetyTolerance ?? 6
-    }),
-    buildBag: (p) => ({ safety_tolerance: p.safetyTolerance ?? 6 })
+    resolve: (p) => ({ imageSize: pixelSize(p), batchSize: numImagesBatch(p) }),
+    buildBag: (p) => (p.safetyTolerance !== undefined ? { safety_tolerance: p.safetyTolerance } : {})
   },
   // Gemini — aihubmix-image-model's gemini branch reads bag.aspectRatio / bag.imageSize.
   {
     match: (id) => id === 'gemini-3-pro-image-preview',
-    resolve: (p) => ({ imageSize: pixelSize(p), batchSize: numImagesBatch(p), safetyTolerance: p.safetyTolerance }),
+    resolve: (p) => ({ imageSize: pixelSize(p), batchSize: numImagesBatch(p) }),
     buildBag: (p) => ({ aspectRatio: p.aspectRatio, imageSize: p.imageSize })
   },
   // Ideogram V_3 — handled by aihubmix-image-model's V_3 FormData branch
@@ -92,7 +89,7 @@ const MODEL_PARAM_RULES: ReadonlyArray<{
   // The branches read every field below.
   {
     match: (id) => id === 'V_3',
-    resolve: (p) => ({ imageSize: pixelSize(p), batchSize: numImagesBatch(p), safetyTolerance: p.safetyTolerance }),
+    resolve: (p) => ({ imageSize: pixelSize(p), batchSize: numImagesBatch(p) }),
     buildBag: (p, mode, imageFiles) => ({
       mode,
       aspectRatio: p.aspectRatio,
@@ -113,7 +110,7 @@ const MODEL_PARAM_RULES: ReadonlyArray<{
   // branch in non-generate modes). renderingSpeed isn't read by that branch.
   {
     match: (id) => id.startsWith('V_'),
-    resolve: (p) => ({ imageSize: pixelSize(p), batchSize: numImagesBatch(p), safetyTolerance: p.safetyTolerance }),
+    resolve: (p) => ({ imageSize: pixelSize(p), batchSize: numImagesBatch(p) }),
     buildBag: (p, mode, imageFiles) => ({
       mode,
       aspectRatio: p.aspectRatio,
@@ -132,7 +129,7 @@ const MODEL_PARAM_RULES: ReadonlyArray<{
   // Empty bag: every supported field (size/n/quality/background/moderation)
   // already flows via aiSdkParams + buildImageProviderOptions.
   {
-    resolve: (p) => ({ imageSize: pixelSize(p), batchSize: numImagesBatch(p), safetyTolerance: p.safetyTolerance }),
+    resolve: (p) => ({ imageSize: pixelSize(p), batchSize: numImagesBatch(p) }),
     buildBag: () => ({})
   }
 ]
@@ -179,7 +176,7 @@ export async function generateWithAihubmixUnified(input: GenerateInput) {
     requirePrompt: mode !== 'upscale',
     resolvers: {
       imageSize: (p) => (p.model ? resolveModelParams(p.model, p).imageSize : undefined),
-      batchSize: (p) => (p.model ? resolveModelParams(p.model, p).batchSize : 1)
+      batchSize: (p) => (p.model ? resolveModelParams(p.model, p).batchSize : undefined)
     },
     providerBag: (p) => (p.model ? buildModelBag(p.model, p, mode, imageFiles) : {}),
     downloadOptions: { showProxyWarning: true }

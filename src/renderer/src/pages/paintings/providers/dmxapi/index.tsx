@@ -118,10 +118,13 @@ export const dmxapiProvider = {
       const model = modelOptions.find((item) => item.value === modelId)
       if (model) {
         const modelMeta = model.meta ?? {}
+        // priceModel / extend_params are vendor plumbing carried from the
+        // model's metadata; image_size stays unset so the form's
+        // registry-driven initialValue chip is what the user sees until
+        // they pick (server applies its own default when omitted).
         return {
           model: modelId,
           priceModel: String(modelMeta.price || ''),
-          image_size: (modelMeta.image_sizes as Array<{ label: string; value: string }> | undefined)?.[0]?.value || '',
           extend_params: (modelMeta.extend_params as Record<string, unknown> | undefined) || {}
         } as Partial<DmxapiPainting>
       }
