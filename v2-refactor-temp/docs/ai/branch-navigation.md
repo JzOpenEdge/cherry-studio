@@ -1,8 +1,5 @@
 # Branch Navigation UX (Sibling navigator + tree view)
 
-> Deferred design note. This is not part of the current AI architecture
-> implementation stack.
-
 ## Context
 
 Cherry's message history is a **DAG** (each message has at most one parent). When users edit-and-resend or regenerate, the affected message gets a sibling group. Users currently switch between siblings via `SiblingNavigator` (`< i/N >` arrows) — works fine when each sibling is a leaf (e.g. immediate post-multi-model selection) but breaks down semantically when each sibling has its own deep subtree (days of conversation, further regen forks).

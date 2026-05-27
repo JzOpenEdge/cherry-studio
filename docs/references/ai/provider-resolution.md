@@ -95,8 +95,9 @@ extension declares:
 - `variants` (suffix entries — see above)
 - `create` (the SDK's factory)
 - `toolFactories` (per-capability factory functions for `webSearch` /
-  `urlContext` etc.; consumed by the params pipeline when capability
-  provider options are built)
+  `urlContext` etc.; see the
+  [core architecture](./core-architecture.md#43-extension-registry)
+  section on tool capability resolution)
 - `supportsImageGeneration` (boolean flag)
 
 ## Where to read more

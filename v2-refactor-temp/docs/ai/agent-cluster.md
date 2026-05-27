@@ -4,12 +4,12 @@
 
 | Subpath | Files | Role |
 |---|---|---|
-| `src/main/ai/runtime/aiSdk/` | `Agent.ts` | The class, hooks composition, write() forwarding |
-| `runtime/aiSdk/loop/` | `index.ts`, `PendingMessageQueue.ts`, `internal.ts` | Loop primitives, message queue, hook wrappers |
+| `src/main/ai/agent/` | `Agent.ts` (303) | The class, hooks composition, write() forwarding |
+| `agent/loop/` | `index.ts` (155 — types), `PendingMessageQueue.ts` (111), `internal.ts` (104) | Loop primitives, message queue, hook wrappers |
 | `agent/observers/` | `steering.ts` (38), `usage.ts` (69) | Internal `Agent.on(...)` registrations |
 | Tests | `loop/__tests__/agentLoop.test.ts` (337) | End-to-end queue drain + hook composition |
 
-The params side (`runtime/aiSdk/params/`) is reviewed separately in
+The params side (`agent/params/`) is reviewed separately in
 [params-cluster.md](./params-cluster.md) so this cluster stays focused on
 the loop semantics.
 

@@ -24,15 +24,10 @@ translate, summarisation) and the renderer-side transport that connects to it.
 | [Tool Registry](./tool-registry.md) | Built-in tools (knowledge / web search), MCP tools, meta-tools (`tool_search` / `tool_inspect` / `tool_invoke` / `tool_exec`), deferred exposition |
 | [Provider Resolution](./provider-resolution.md) | `Provider.endpointConfigs` schema, endpoint resolution chain, variant suffixes, custom provider extensions (aihubmix, newapi) |
 | [Trace / Telemetry](./trace.md) | `AiSdkSpanAdapter`, root span propagation, OTel attribute shape, what each span captures |
-
-### CherryClaw autonomous agent
-
-| Document | What it covers |
-|---|---|
-| [CherryClaw Overview](./cherryclaw/overview.md) | Autonomous agent architecture, memory model, API |
-| [Channel System](./cherryclaw/channels.md) | IM integration for CherryClaw agents |
-| [Claw MCP Server](./cherryclaw/mcp-claw.md) | Built-in MCP tools for scheduling, notifications, skills, and memory |
-| [Scheduler](./cherryclaw/scheduler.md) | Task-based polling scheduler |
+| [CherryClaw Overview](./cherryclaw/overview.md) | Autonomous agent architecture, memory system, and MCP surface |
+| [CherryClaw Channels](./cherryclaw/channels.md) | IM channel adapters, routing, batching, and streaming bridge |
+| [CherryClaw MCP Server](./cherryclaw/mcp-claw.md) | Built-in MCP tools for cron, notifications, skills, memory, and config |
+| [CherryClaw Scheduler](./cherryclaw/scheduler.md) | Task-based polling scheduler for autonomous runs |
 
 ### Renderer-side glue
 
@@ -46,13 +41,13 @@ translate, summarisation) and the renderer-side transport that connects to it.
 
 ```
 src/main/ai/
-├── AiService.ts                  ← lifecycle owner, non-stream IPC, SDK dispatch
+├── AiService.ts                  ← lifecycle owner, IPC handlers, dispatch entry
 ├── runtime/                      ← AI execution backends
-│   ├── aiSdk/                    ← Agent class, loop, observers, params/features
-│   └── claudeCode/               ← Claude Code driver, warm query, SDK adapter
-├── agentSession/                 ← agent-session topic host
+│   ├── ai-sdk/                   ← Agent class, loop, observers, params/features
+│   └── claude-code/              ← Claude Code driver, warm query, SDK adapter
+├── agent-session/                ← agent-session topic host
 │   └── AgentSessionRuntimeService.ts
-├── streamManager/                ← AiStreamManager + listeners + persistence backends
+├── stream-manager/               ← AiStreamManager + listeners + persistence backends
 │   ├── AiStreamManager.ts
 │   ├── context/                  ← ChatContextProvider implementations
 │   ├── lifecycle/                ← chat / prompt-only stream lifecycles
@@ -67,12 +62,16 @@ src/main/ai/
 │   └── listModels.ts             ← per-provider model listing
 ├── mcp/                          ← MCP runtime/catalog services and built-in servers
 │   └── servers/                  ← in-memory MCP server implementations
-├── tools/                        ← tool adapters
-│   └── adapters/
-│       ├── aiSdk/                ← registry, builtin/MCP/meta tools, defer, repair
-│       └── claudeCode/           ← Claude Code runtime tool adapter
+├── tools/                        ← unified tool registry
+│   ├── builtin/                  ← KnowledgeSearch / KnowledgeList / WebSearch
+│   ├── mcp/                      ← MCP server → ToolEntry sync
+│   ├── meta/                     ← tool_search / tool_inspect / tool_invoke / tool_exec
+│   ├── exposition/               ← shouldDefer + applyDeferExposition
+│   ├── registry.ts
+│   └── repair.ts                 ← invalid tool-call repair
 ├── observability/                ← AI trace adapters, local projection, sinks
 ├── messages/                     ← UI part → AI SDK part conversion
+├── prompts/                      ← static prompt fragments
 ├── types/                        ← AppProviderId, merged extension types, request types
 └── utils/                        ← reasoning / model parameters / options / websearch helpers
 ```
@@ -81,8 +80,8 @@ src/main/ai/
 
 1. Renderer `useChat({ transport: IpcChatTransport })` calls `sendMessages` →
    IPC `Ai_Stream_Open` (`{ topicId, parts, parentAnchorId, models }`).
-2. `AiStreamManager` handles `Ai_Stream_Open` and calls
-   `dispatchStreamRequest(manager, subscriber, request)`.
+2. `AiService.ipcHandle('Ai_Stream_Open')` calls
+   `dispatchStreamRequest(manager, request)`.
 3. `dispatchStreamRequest` picks the first `ChatContextProvider` whose
    `canHandle(topicId)` matches (persistent chat / temporary / agent
    session) and calls `prepareDispatch` — that resolves models, persists

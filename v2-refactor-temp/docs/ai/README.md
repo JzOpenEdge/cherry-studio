@@ -37,22 +37,22 @@ Each cluster doc:
 | Package Changes | `packages/aiCore`, `packages/provider-registry`, shared types | [packages-cluster.md](./packages-cluster.md) |
 | Data Layer | Agent / session / workspace schema rewrite, MessageService, migrators, DataApi handlers, shared types/schemas | [data-cluster.md](./data-cluster.md) |
 
-## Deferred design notes
+## Already-documented sub-features
 
-Some smaller design notes pre-date this index. They are kept here as
-review context, but they are not all current implementation docs:
+Three smaller, self-contained sub-features have their own design docs
+that pre-date this index — these stay where they are and the cluster
+docs above reference them:
 
 - [`adapter-family.md`](./adapter-family.md) — endpoint → `@ai-sdk/*`
   routing. (Covered also at [Provider Resolution](./provider-cluster.md).)
-- [`translate-on-main.md`](./translate-on-main.md) — implemented translate
-  flow, why it's not chat-shape.
-- [`branch-navigation.md`](./branch-navigation.md) — deferred UX plan for
-  branched DAG history; not implemented in this PR stack.
-- [`token-estimator-p0.md`](./token-estimator-p0.md) — deferred backend
-  token-estimation plan; not implemented in this PR stack.
+- [`translate-on-main.md`](./translate-on-main.md) — translate flow,
+  why it's not chat-shape.
+- [`branch-navigation.md`](./branch-navigation.md) — UX for branched
+  DAG history; UX-side, not on the AiService critical path.
+- [`token-estimator-p0.md`](./token-estimator-p0.md) — backend token
+  estimation behind the input-bar badge.
 - [`large-file-upload-port.md`](./large-file-upload-port.md) — outstanding
-  port from renderer for Gemini/OpenAI File APIs; not implemented in this
-  PR stack.
+  port from renderer for Gemini/OpenAI File APIs.
 
 ## Suggested review order
 

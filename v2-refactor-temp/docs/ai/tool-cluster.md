@@ -5,10 +5,10 @@
 | Subpath | Files | Role |
 |---|---|---|
 | `src/main/ai/tools/` | `registry.ts` (109), `types.ts` (69), `context.ts` (76), `repair.ts` (79) | Catalog + per-request context + invalid-call repair |
-| `tools/adapters/aiSdk/builtin/` | `KnowledgeListTool.ts`, `KnowledgeSearchTool.ts`, `WebSearchTool.ts`, `index.ts` | Built-in tool implementations + registration |
-| `tools/adapters/aiSdk/mcp/` | `mcpTools.ts`, `resolveAssistantMcpTools.ts`, `utils.ts` | MCP server → ToolEntry sync, assistant resolution |
-| `tools/adapters/aiSdk/meta/` | `toolSearch.ts`, `toolInspect.ts`, `toolInvoke.ts`, `toolExec.ts`, `formatJsDoc.ts`, `exec/runtime.ts`, `exec/worker.ts` | Meta-tools surfaced on the defer path |
-| `tools/adapters/aiSdk/exposition/` | `shouldDefer.ts`, `applyDeferExposition.ts` | Defer policy + exposition |
+| `tools/builtin/` | `KnowledgeListTool.ts`, `KnowledgeSearchTool.ts`, `WebSearchTool.ts`, `index.ts` | Built-in tool implementations + registration |
+| `tools/mcp/` | `mcpTools.ts` (169), `resolveAssistantMcpTools.ts`, `utils.ts` | MCP server → ToolEntry sync, assistant resolution |
+| `tools/meta/` | `toolSearch.ts`, `toolInspect.ts`, `toolInvoke.ts`, `toolExec.ts`, `formatJsDoc.ts`, `exec/runtime.ts` (205), `exec/worker.ts` (139) | Meta-tools surfaced on the defer path |
+| `tools/exposition/` | `shouldDefer.ts` (89), `applyDeferExposition.ts` (56) | Defer policy + exposition |
 | Tests | `__tests__/` across all subpaths | Per-file coverage (~25 test files total) |
 
 ## Intent
@@ -39,7 +39,7 @@ Built-in / MCP / meta-tool entries share the same interface. AI SDK's
 
 ### Singleton + per-test fresh
 
-`registry` (`tools/adapters/aiSdk/registry.ts`) is a module-level singleton — tools
+`registry` (`tools/registry.ts`) is a module-level singleton — tools
 register at import time. Tests construct their own
 `new ToolRegistry()`; see memory:
 [No module-level state in shared test mocks](../../../).
@@ -49,7 +49,7 @@ register at import time. Tests construct their own
 `syncMcpToolsToRegistry({ selectedToolIds })` only calls `listTools` on
 the MCP servers that own at least one selected tool. Without that gate
 every active server would be hit per request. See
-`tools/adapters/aiSdk/mcp/mcpTools.ts` + commit `af7e4f854 perf(mcp-tools): scope
+`tools/mcp/mcpTools.ts` + commit `af7e4f854 perf(mcp-tools): scope
 registry sync to selected servers`.
 
 ### Defer exposition (perf gate)

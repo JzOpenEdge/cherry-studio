@@ -5,7 +5,8 @@
 | Package | Files | Role |
 |---|---|---|
 | `packages/aiCore/` | `core/providers/core/ProviderExtension.ts`, `core/runtime/types.ts` | Cherry's AI SDK wrapper — `ProviderExtension`, `RuntimeExecutor`, `PluginEngine`, `ExtensionRegistry`, `toolFactories` |
-| `packages/provider-registry/` | `data/providers.json`, `packages/provider-registry/src/registry-utils.ts`, `packages/provider-registry/src/registry-loader.ts`, `packages/provider-registry/src/schemas/provider.ts`, `packages/provider-registry/src/patterns/vendor-patterns.ts`, `packages/provider-registry/src/index.ts` | Provider catalog (data) + utils that derive `adapterFamily` |
+| `packages/provider-registry/` | `data/providers.json`, `src/registry-utils.ts`, `src/registry-loader.ts`, `src/schemas/provider.ts`, `src/patterns/vendor-patterns.ts`, `src/index.ts` | Provider catalog (data) + utils that derive `adapterFamily` |
+| `packages/shared/aiCore/provider/utils/` | `api.ts`, `index.ts`, `types.ts` | Shared provider helpers consumed by both renderer (legacy paths) and Main |
 | `packages/shared/data/` | `api/schemas/providers.ts`, `types/provider.ts` | Provider + EndpointConfig schemas |
 | `packages/shared/utils/` | `provider.ts`, `providerTopology.ts` | Provider predicate / topology helpers (lifted from renderer; see commit `c75b08597 refactor(provider-utils): unify ProviderSettings predicate fork into @shared`) |
 
@@ -41,7 +42,8 @@ declaration; `WebSearchToolConfigMap` is auto-generated from
 inferred from the extension declaration — UI form fields can be
 strongly typed against the per-vendor shape.
 
-See [Provider Resolution](../../../docs/references/ai/provider-resolution.md#provider-extensions).
+See the core architecture's
+[Tool capability resolution](../../../docs/references/ai/core-architecture.md#43-extension-registry).
 
 #### `core/runtime/types.ts`
 
@@ -55,12 +57,12 @@ parameter shape adjustments.
 Per-provider, per-endpoint `adapterFamily` field added across the
 catalog. Audit: 100% of entries have `adapterFamily` on every endpoint.
 
-#### `packages/provider-registry/src/schemas/provider.ts`
+#### `src/schemas/provider.ts`
 
 `RegistryEndpointConfigSchema.adapterFamily: z.string()`. Schema
 validates the catalog at load time; missing `adapterFamily` fails fast.
 
-#### `packages/provider-registry/src/registry-utils.ts`
+#### `src/registry-utils.ts`
 
 - `inferAdapterFamily(endpointType, catalogConfig?)` — the single source
   of truth for derivation. Catalog wins; otherwise endpoint-type default
@@ -70,13 +72,13 @@ validates the catalog at load time; missing `adapterFamily` fails fast.
 - `lookupRegistryModel` / `lookupRegistryProvider` — name lookup helpers
   used by the migrator.
 
-#### `packages/provider-registry/src/registry-loader.ts`
+#### `src/registry-loader.ts`
 
 Three-layer cache (mtime, v8.serialize, O(1) lookup) — see memory:
 [Registry perf plan](../../../). Hot on app boot; matters because
 migrations also call `findProvider(id)` per row.
 
-#### `packages/provider-registry/src/patterns/vendor-patterns.ts`
+#### `src/patterns/vendor-patterns.ts`
 
 Vendor capability inference patterns. Added entries for new providers.
 
@@ -99,6 +101,11 @@ Moved out of the renderer in commits:
 
 Predicates: `isOpenAIProvider`, `isAnthropicProvider`, etc. Topology
 helpers: walk model lists by capability, find default chat endpoint.
+
+### `packages/shared/aiCore/provider/utils/`
+
+Provider configuration helpers used by both Main and (legacy) renderer
+during transition. `api.ts` carries common host-normalisation logic.
 
 ## Invariants
 
@@ -126,5 +133,6 @@ helpers: walk model lists by capability, find default chat endpoint.
 - `packages/aiCore` test infrastructure could lift to share with
   Main-side test helpers (`@cherrystudio/ai-core/test_utils` already
   exists — coverage of variant resolution edge cases).
-- Renderer-only `@renderer/utils/provider` helpers were removed in the
-  cleanup chain; new provider predicates should live in `packages/shared/utils/`.
+- Some renderer-only `@renderer/utils/provider` files still exist; the
+  inlining chain (commits `617a17509`, `ae3306305`) covers most but a
+  final pass is pending.

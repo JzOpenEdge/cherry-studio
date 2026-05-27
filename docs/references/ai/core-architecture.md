@@ -24,15 +24,10 @@ each subsystem.
 │                              Main                                    │
 │                                                                      │
 │  AiService (lifecycle service)                                       │
-│    ├─ ipcHandle('Ai_GenerateText', Agent.generate)                    │
-│    ├─ ipcHandle('Ai_Translate_Open', translateService.open)           │
+│    ├─ ipcHandle('Ai_Stream_Open',  dispatchStreamRequest)             │
+│    ├─ ipcHandle('Ai_Stream_Attach', AiStreamManager.attach)           │
+│    ├─ ipcHandle('Ai_Stream_Abort',  AiStreamManager.abort)            │
 │    └─ ipcHandle('Ai_ToolApproval_Respond', applyApprovalAndContinue)  │
-│                                                                      │
-│  AiStreamManager (lifecycle service)                                  │
-│    ├─ ipcHandle('Ai_Stream_Open', dispatchStreamRequest)              │
-│    ├─ ipcHandle('Ai_Stream_Attach', attach)                           │
-│    ├─ ipcHandle('Ai_Stream_Detach', detach)                           │
-│    └─ ipcHandle('Ai_Stream_Abort', abort)                             │
 │                                                                      │
 │  dispatch (src/main/ai/streamManager/context/dispatch.ts)            │
 │    pick ChatContextProvider → prepareDispatch → manager.send(...)     │
@@ -67,8 +62,7 @@ each subsystem.
 1. User hits send. `useChat.sendMessages` calls `IpcChatTransport.sendMessages`.
 2. Transport packages `AiStreamOpenRequest`, dispatches via
    `streamDispatchCoordinator` over IPC `Ai_Stream_Open`.
-3. `AiStreamManager` IPC handler calls
-   `dispatchStreamRequest(manager, subscriber, request)`.
+3. `AiService` IPC handler calls `dispatchStreamRequest(manager, request)`.
 4. `dispatchStreamRequest` picks the first `ChatContextProvider` whose
    `canHandle(topicId)` matches and asks it to `prepareDispatch`.
 5. The provider resolves models, persists the user message (chat) or skips
@@ -150,14 +144,15 @@ overlay-vs-persist conditional write.
 
 ```
 src/main/ai/
-├── AiService.ts                  ← lifecycle owner, non-stream IPC, SDK dispatch
+├── AiService.ts                  ← lifecycle owner, IPC entry
 ├── runtime/                      ← AI SDK and Claude Code execution backends
-├── agentSession/                 ← agent-session topic host
-├── streamManager/                ← AiStreamManager, listeners, persistence
+├── agent-session/                ← agent-session topic host
+├── stream-manager/               ← AiStreamManager, listeners, persistence
 ├── provider/                     ← provider config, endpoint resolution, custom providers
-├── tools/                        ← AI SDK and Claude Code tool adapters
+├── tools/                        ← unified tool registry
 ├── observability/                ← AI trace adapters, local projection, sinks
 ├── messages/                     ← UI part → AI SDK part conversion
+├── prompts/                      ← static prompt fragments
 ├── types/                        ← AppProviderId, merged types, request types
 └── utils/                        ← reasoning / model parameters / options / websearch
 

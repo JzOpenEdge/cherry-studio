@@ -8,7 +8,7 @@
 | `src/main/data/services/` | `SessionService.ts` + `WorkspaceService.ts` new; `AgentService.ts`, `AgentSessionMessageService.ts`, `MessageService.ts` heavy rewrites |
 | `src/main/data/api/handlers/` | `sessions.ts` + `workspaces.ts` new; `agents.ts` slimmed (~100 LOC); `messages.ts` extended; `assistants.ts` + `topics.ts` extended |
 | `src/main/data/migration/v2/migrators/` | `AgentsMigrator.ts` + `AgentsDbMappings.ts` rewrites; `ChatMigrator.ts` parts conversion; `ProviderModelMigrator.ts` `adapterFamily` backfill |
-| `packages/shared/data/types/` | `uiParts.ts` new; `agent.ts` slimmed via Zod inference; `message.ts` heavy rewrite (parts model) |
+| `packages/shared/data/types/` | `agentMessage.ts` + `uiParts.ts` new; `agent.ts` slimmed via Zod inference; `message.ts` heavy rewrite (parts model) |
 | `packages/shared/agents/` | `agentSlashCommands.ts` new (builtin SDK command list, off the data layer) |
 | `packages/shared/data/api/schemas/` | `sessions.ts` + `workspaces.ts` new; `agents.ts` slimmed by 126 LOC; `messages.ts` + `assistants.ts` + `providers.ts` extended |
 
@@ -104,11 +104,11 @@ export const agentSessionTable = sqliteTable('agent_session', {
 Removed (relative to v1): every cognitive-config field. The renderer
 fetches them via `useAgent(session.agentId)`.
 
-**Workspace binding.** Migrated sessions may have `workspaceId === null`;
-newly created sessions bind one (auto-derived from the most recent sibling, or
-a default created on demand). `UpdateSessionDto` currently allows an explicit
-`workspaceId` update for session-management flows; runtime code must still
-treat workspace availability as runtime state, not persisted identity.
+**Insert-only workspace.** `UpdateSessionDto` deliberately does not
+include `workspaceId` — a running session can't be re-pointed at a new
+directory. Migrated sessions may have `workspaceId === null`; newly
+created sessions bind one (auto-derived from the most recent sibling, or
+a default created on demand).
 
 ### `agent_workspace` (new — `workspace.ts`)
 
@@ -238,9 +238,8 @@ SQLite database. Source tables → targets:
 Key points:
 
 - **First workspace wins.** Only `accessible_paths[0]` is migrated to a
-  workspace row. Additional paths are not preserved; that user-visible
-  migration note lives with the breaking-change docs in the implementation
-  stack.
+  workspace row. Additional paths are not preserved. See
+  [`2026-05-19-agent-session-primary-workspace.md`](../breaking-changes/2026-05-19-agent-session-primary-workspace.md).
 - **`blocks` → `parts`** for legacy session messages, via the same
   `transformBlocksToParts` that `ChatMigrator` uses for the chat tree.
 - **Defensive default backfill.** `notNullCol(name, defaultExpr)` in
@@ -264,11 +263,9 @@ Backfills `adapterFamily` per endpoint config. See
 
 ## Shared types & API schemas
 
-### `packages/shared/data/api/schemas/sessions.ts`
+### `packages/shared/data/types/agentMessage.ts` (new)
 
-Defines `AgentSessionMessageEntity` / create DTOs for
-`agent_session_message` rows. The message payload reuses the shared
-`MessageDataSchema` parts model.
+The `AgentPersistedMessage` shape stored on `agent_session_message.content`.
 
 ### `packages/shared/data/types/uiParts.ts` (new)
 
@@ -315,8 +312,8 @@ Three places where the data model now distinguishes models:
    messages now use it too.
 3. **Multi-model assistant turn.** `siblings_group_id` (already on the
    message tree) groups parallel assistant replies. The migrator
-   preserves existing sibling groups; the stream manager's persistent
-   context provider allocates new ones for fresh multi-model turns.
+   preserves existing sibling groups; the stream-manager's persistent
+   provider allocates new ones for fresh multi-model turns.
 
 ## Invariants reviewers should check
 

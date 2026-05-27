@@ -21,8 +21,8 @@ path without going through the AI SDK adapter.
 The main-process observability boundary is `src/main/ai/observability`:
 
 - `core/` creates Cherry-owned turn roots and common `cs.*` attributes.
-- `adapters/aiSdk/` interprets AI SDK child spans.
-- `adapters/claudeCode/` interprets Claude Code OTLP spans and logs.
+- `adapters/ai-sdk/` interprets AI SDK child spans.
+- `adapters/claude-code/` interprets Claude Code OTLP spans and logs.
 - `cache/` keeps the trace-window projection and JSONL-compatible history.
 - `sinks/` defines the extension point for local and future external export.
 
@@ -57,7 +57,7 @@ by the global provider. On every `startSpan` / `startActiveSpan` it:
 
 `AdapterTracer` is intentionally only for AI SDK child spans:
 
-- `buildTelemetry` (`runtime/aiSdk/params/buildTelemetry.ts`) — passed to AI
+- `buildTelemetry` (`runtime/ai-sdk/params/buildTelemetry.ts`) — passed to AI
   SDK as `experimental_telemetry.tracer`. Captures every AI SDK auto-span.
 
 ## AiSdkSpanAdapter

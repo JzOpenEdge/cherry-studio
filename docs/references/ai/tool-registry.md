@@ -13,7 +13,7 @@ interface ToolEntry {
 }
 ```
 
-`registry` (`src/main/ai/tools/adapters/aiSdk/registry.ts`) is a process-wide singleton.
+`registry` (`src/main/ai/tools/registry.ts`) is a process-wide singleton.
 Tool files register at module-import time; the registry is read at
 request time by `buildAgentParams`.
 
@@ -32,7 +32,7 @@ unambiguous):
 
 ## Built-in tools
 
-`src/main/ai/tools/adapters/aiSdk/builtin/`:
+`src/main/ai/tools/builtin/`:
 
 - `WebSearchTool` — registered under namespace `web`. Talks to the
   configured web-search provider via the renderer-shared search service.
@@ -44,7 +44,7 @@ the relevant `assistant.settings.*` flag (e.g. `enableWebSearch`).
 
 ## MCP tools
 
-`src/main/ai/tools/adapters/aiSdk/mcp/`:
+`src/main/ai/tools/mcp/`:
 
 - `resolveAssistantMcpTools` — assistant's enabled MCP servers + per-tool
   disable list → set of tool ids.
@@ -59,7 +59,7 @@ The sync is idempotent; a stale entry is overwritten on the next sync.
 
 ## Meta-tools
 
-`src/main/ai/tools/adapters/aiSdk/meta/` exposes four tools that turn the registry into
+`src/main/ai/tools/meta/` exposes four tools that turn the registry into
 a search-then-call interface for the model:
 
 | Tool | Use |
@@ -74,7 +74,7 @@ only when) the request actually defers tools. See below.
 
 ## Defer exposition
 
-`src/main/ai/tools/adapters/aiSdk/exposition/`:
+`src/main/ai/tools/exposition/`:
 
 - `shouldDefer(entries, contextWindow)` — returns the set of names to
   defer. Two gates above the simple threshold:
@@ -99,19 +99,17 @@ sandbox.
 - `applies(scope: ToolApplyScope)` — per-entry predicate consulted at
   `registry.selectActive`. Throws are caught and treated as "inactive"
   with a warning log.
-- `createAiRepair(...)` (`tools/adapters/aiSdk/repair.ts`) — passed to AI SDK as
+- `createAiRepair(...)` (`tools/repair.ts`) — passed to AI SDK as
   `repairToolCall`. When the model emits an unknown tool name or
   malformed args, the repair function gets one chance to fix it via a
   follow-up LLM call.
 
 ## Where to read more
 
-- Code: `src/main/ai/tools/adapters/aiSdk/`
-- Tests: `tools/adapters/aiSdk/__tests__/`,
-  `tools/adapters/aiSdk/builtin/__tests__/`,
-  `tools/adapters/aiSdk/exposition/__tests__/`,
-  `tools/adapters/aiSdk/mcp/__tests__/`,
-  `tools/adapters/aiSdk/meta/__tests__/`
+- Code: `src/main/ai/tools/`
+- Tests: `tools/__tests__/`, `tools/builtin/__tests__/`,
+  `tools/exposition/__tests__/`, `tools/mcp/__tests__/`,
+  `tools/meta/__tests__/`
 - Defer rationale, gate thresholds:
-  `tools/adapters/aiSdk/exposition/shouldDefer.ts` (header doc + tests)
+  `tools/exposition/shouldDefer.ts` (header doc + tests)
 - Approval flow: [Tool Approval](./tool-approval.md)

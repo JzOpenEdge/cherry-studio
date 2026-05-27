@@ -5,10 +5,10 @@
 | Subpath | Files | Role |
 |---|---|---|
 | `src/main/ai/streamManager/` | `AiStreamManager.ts` (1004), `index.ts`, `types.ts` (311), `pipeStreamLoop.ts` (141), `buildCompactReplay.ts` | The broker itself + shared chunk-pipe primitive |
-| `streamManager/context/` | `ChatContextProvider.ts`, `PersistentChatContextProvider.ts`, `TemporaryChatContextProvider.ts`, `AgentChatContextProvider.ts`, `dispatch.ts`, `modelResolution.ts` | Per-topic-namespace bundle producers + the single dispatch entry |
-| `streamManager/lifecycle/` | `StreamLifecycle.ts`, `ChatStreamLifecycle.ts`, `PromptStreamLifecycle.ts` | Strategy for status broadcast, attach gating, grace-period cleanup |
-| `streamManager/listeners/` | `WebContentsListener.ts`, `PersistenceListener.ts`, `SseListener.ts`, `ChannelAdapterListener.ts` | Concrete subscribers of the chunk stream |
-| `streamManager/persistence/` | `PersistenceBackend.ts` + backends (`MessageService`, `TemporaryChat`, `Translation`) | Storage strategy |
+| `stream-manager/context/` | `ChatContextProvider.ts`, `PersistentChatContextProvider.ts`, `TemporaryChatContextProvider.ts`, `AgentChatContextProvider.ts`, `dispatch.ts`, `modelResolution.ts` | Per-topic-namespace bundle producers + the single dispatch entry |
+| `stream-manager/lifecycle/` | `StreamLifecycle.ts`, `ChatStreamLifecycle.ts`, `PromptStreamLifecycle.ts` | Strategy for status broadcast, attach gating, grace-period cleanup |
+| `stream-manager/listeners/` | `WebContentsListener.ts`, `PersistenceListener.ts`, `SseListener.ts`, `ChannelAdapterListener.ts` | Concrete subscribers of the chunk stream |
+| `stream-manager/persistence/` | `PersistenceBackend.ts` + 4 backends (`MessageService`, `TemporaryChat`, `AgentMessage`, `Translation`) | Storage strategy |
 | Tests | `__tests__/AiStreamManager.test.ts` (927), `__tests__/buildCompactReplay.test.ts`, `context/__tests__/`, `listeners/__tests__/`, `persistence/backends/__tests__/` | Per-file coverage |
 
 ## Intent
@@ -90,8 +90,8 @@ code branches only on `stream.lifecycle.cleanup(...)`.
 - `TranslationBackend` — translate-on-main rows (see
   [translate-on-main.md](./translate-on-main.md)).
 
-Agent session persistence is owned by `agentSession/persistence`, not
-by `streamManager`.
+Agent session persistence is owned by `agent-session/persistence`, not
+by stream-manager.
 
 ### `pipeStreamLoop`
 

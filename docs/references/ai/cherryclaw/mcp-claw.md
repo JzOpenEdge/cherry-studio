@@ -1,183 +1,94 @@
 # Claw MCP Server
 
-The Claw MCP server is a built-in MCP (Model Context Protocol) server automatically injected into every CherryClaw session. It provides four self-management tools for the agent: `cron` (task scheduling), `notify` (notifications), `skills` (skill management), and `memory` (memory management).
+`src/main/ai/mcp/servers/claw.ts` is the built-in MCP server injected when an agent has `soul_enabled: true`. It exposes **three** tools: `cron` (scheduled tasks), `notify` (channel notifications), and `config` (agent self-management). `skills` and `memory` are **separate** MCP servers and are documented at the end of this page.
 
-## Architecture
+## Injection
 
 ```
-CherryClawService.invoke()
-  → Create ClawServer instance (one new instance per invocation)
-  → Inject as in-memory MCP server:
-      _internalMcpServers = { claw: { type: 'inmem', instance: clawServer.mcpServer } }
-  → ClaudeCodeService merges into SDK options.mcpServers
-  → SDK auto-discovers tools: mcp__claw__cron, mcp__claw__notify, mcp__claw__skills, mcp__claw__memory
+buildClaudeCodeSessionSettings  (settingsBuilder.ts)
+  → buildMcpServers(session, agent, soulEnabled, isAssistant)
+    if soulEnabled:
+      sourceChannelId = resolveSourceChannel(agent.id, session.id)   // channel whose sessionId === session.id
+      clawServer       = new ClawServer(agent.id, sourceChannelId)
+      mcpList.claw     = { type: 'sdk', name: 'claw', instance: clawServer.mcpServer }
+  → adjustAllowedToolsForMcp(allowedTools, soulEnabled, isAssistant)
+      pushes 'mcp__claw__*' wildcard so canUseTool admits the injected tools
 ```
 
-ClawServer uses the `@modelcontextprotocol/sdk` `McpServer` class, running in memory mode (no HTTP transport). A new instance is created per CherryClaw session invocation, bound to the current agent's ID.
+A new `ClawServer` is constructed **per session settings build** — it carries `agentId` (always present after the orphan-session check) and an optional `sourceChannelId` so the `cron add` tool can default scheduled-task output to the channel the request came in on. The server runs in-process via `@modelcontextprotocol/sdk` `McpServer`; it is wrapped as `{ type: 'sdk', ... }` for the SDK, not `'inmem'`.
 
-## Tool Whitelist
+## Tools
 
-When an agent has an explicit `allowed_tools` whitelist, `CherryClawService` automatically appends the `mcp__claw__*` wildcard to ensure the SDK doesn't filter out internal MCP tools. When `allowed_tools` is undefined (unrestricted), all tools are already available.
+### `cron` — scheduled tasks
 
----
+Manages persistent `agent.task` schedules via `agentTaskService` (which is a thin facade over `jobScheduleService` + `JobManager`).
 
-## cron Tool
+| Action | Required args | Notes |
+|---|---|---|
+| `add` | `name`, `message`, **one of** `cron` / `every` / `at` | Optional `channel_ids` (empty array → no channel delivery; omitted → defaults to current source channel if present); optional `timeout_minutes` (default 2) |
+| `list` | — | Returns up to 100 tasks for the current agent |
+| `remove` | `id` | Deletes the schedule |
 
-Manages agent scheduled tasks. The agent can autonomously create, view, and delete periodically executed tasks.
+Trigger mapping (the tool builds a `Trigger` object directly, no intermediate `schedule_type` enum):
 
-### Actions
+| Input | Resulting `Trigger` |
+|---|---|
+| `cron: '0 9 * * 1-5'` | `{ kind: 'cron', expr: '0 9 * * 1-5' }` |
+| `every: '30m'` / `'1h30m'` | `{ kind: 'interval', ms: minutes * 60_000 }` (parsed via `parseDurationToMinutes`) |
+| `at: '2026-05-27T10:00:00Z'` | `{ kind: 'once', at: Date.parse(...) }` |
 
-#### `add` — Create Task
+There is no `session_mode` / `context_mode` parameter — every fire creates a fresh session (see [scheduler.md](./scheduler.md) for why).
 
-| Parameter | Type | Required | Description |
+### `notify` — push to channels
+
+| Arg | Description |
+|---|---|
+| `message` | Required — text to send |
+| `channel_id` | Optional — limit delivery to one channel; omitted ⇒ all of this agent's connected adapters |
+
+Looks up `ChannelManager.getAgentAdapters(agentId)`, optionally filters by `channel_id`, and calls `adapter.sendMessage(chatId, message)` for every `chatId` in `adapter.notifyChatIds`. Returns a status string (`"Notification sent to N chat(s)."`) plus errors if any sends failed. When the agent has no connected channels, it returns an informational message — not an error.
+
+### `config` — agent self-management
+
+Single tool, action-dispatched. Action set:
+
+| Action | Effect |
+|---|---|
+| `status` | Returns `{ agentId, name, model, supported_channel_types[], channels[], soul_enabled, heartbeat_enabled }`; per-channel `connected` comes from `ChannelManager.getAdapterStatuses` |
+| `rename` | Updates `agent.name` (used as the sidebar label) |
+| `add_channel` | Creates an `agent_channel` row and calls `ChannelManager.syncChannel`. For `wechat` or `feishu` without app credentials, blocks briefly on `waitForQrUrl` and returns the QR as an inline image; on QR timeout, removes the orphan channel row |
+| `update_channel` | Patches `name` / `enabled` / `config` (config is merged onto existing config), then `syncChannel` |
+| `remove_channel` | Deletes the channel row (Channel cleanup is handled by the workflow service) |
+| `reconnect_channel` | For QR-based channels (`wechat`, or `feishu` without `app_id`), regenerates the QR; otherwise just calls `syncChannel` |
+| `complete_bootstrap` | Sets `configuration.bootstrap_completed = true` so future sessions stop receiving the onboarding system-prompt section |
+| `reset_bootstrap` | Sets it back to `false` for the next session |
+
+The `add_channel` and `reconnect_channel` paths embed the QR image as an MCP `image` content block (base64 PNG generated by `qrcode`), so the agent can pass it back to the user inside the chat.
+
+Supported channel types come from `CHANNEL_CONFIG_SCHEMAS` inside `claw.ts`: `telegram`, `feishu`, `qq`, `wechat`, `discord`, `slack`. Each has its own `required` / `optional` config fields and a setup-instructions blob the agent can recite to the user.
+
+## Error handling
+
+All tool calls run inside a single try/catch around the dispatcher. On error, returns an MCP content array of one `text` block with `Error: <message>` and `isError: true`. Errors are also logged via `loggerService.withContext('MCPServer:Claw')`.
+
+## `skills` and `memory` (separate MCP servers)
+
+These are **not** part of the claw server. They live alongside it and are surfaced via the agent's `mcps` list (per-agent MCP configuration):
+
+| Server file | Server name | Tool surface | What it does |
 |---|---|---|---|
-| `name` | string | Yes | Task name |
-| `message` | string | Yes | Prompt/instruction to execute |
-| `cron` | string | One of three | Cron expression, e.g., `0 9 * * 1-5` |
-| `every` | string | One of three | Duration, e.g., `30m`, `2h`, `1h30m` |
-| `at` | string | One of three | RFC3339 timestamp for one-time tasks |
-| `session_mode` | string | No | `reuse` (default, preserve conversation history) or `new` (new session each time) |
+| `src/main/ai/mcp/servers/skills.ts` | `skills` | `mcp__skills__skills` | `search` (marketplace API), `install`, `remove`, `list`, `init` (scaffold) + `register` (author flow) |
+| `src/main/ai/mcp/servers/workspaceMemory.ts` | `agent-memory` | `mcp__agent-memory__memory` | `update` FACT.md (atomic tmp-file + rename), `append` JOURNAL.jsonl, `search` journal |
 
-Only one of `cron`, `every`, `at` can be specified. `every` supports human-friendly duration formats, internally converted to minutes.
+PromptBuilder's `SKILLS_GUIDANCE` and `MEMORY_GUIDANCE` sections embed when-to-act rules for both. The autonomous agent decides when to consult marketplace skills, persist a lesson to FACT.md, or log an event to the journal.
 
-Schedule type mapping:
-- `cron` → `schedule_type: 'cron'`
-- `every` → `schedule_type: 'interval'` (value in minutes)
-- `at` → `schedule_type: 'once'` (value as ISO timestamp)
-
-Session mode mapping:
-- `reuse` → `context_mode: 'session'`
-- `new` → `context_mode: 'isolated'`
-
-#### `list` — List Tasks
-
-No parameters. Returns all scheduled tasks for the current agent (limit 100), in JSON format.
-
-#### `remove` — Delete Task
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `id` | string | Yes | Task ID |
-
----
-
-## notify Tool
-
-Send notification messages to users through connected channels (e.g., Telegram). The agent can proactively notify users of task results, status updates, or other important information.
-
-### Parameters
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `message` | string | Yes | Notification content |
-| `channel_id` | string | No | Send to specific channel only (omit to send to all notification channels) |
-
-### Behavior
-
-1. Get all `is_notify_receiver: true` channel adapters for the current agent
-2. If `channel_id` is specified, filter to that channel
-3. Send message to all `notifyChatIds` of each adapter
-4. Return send count and any errors
-
-Returns an informational message (not an error) if no notification channels are configured.
-
----
-
-## skills Tool
-
-Manage Claude skills in the agent workspace. Supports searching from the marketplace, installing, uninstalling, and listing installed skills.
-
-### Actions
-
-#### `search` — Search Skills
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `query` | string | Yes | Search keywords |
-
-Queries the public marketplace API (`claude-plugins.dev/api/skills`), returns matching skills with `name`, `description`, `author`, `identifier` (for installation), and `installs` count. Hyphens and underscores in search terms are replaced with spaces to improve matching.
-
-#### `install` — Install Skill
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `identifier` | string | Yes | Marketplace skill identifier, format `owner/repo/skill-name` |
-
-Constructs `marketplace:skill:{identifier}` path internally, delegates to `PluginService.install()`.
-
-#### `remove` — Uninstall Skill
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | Yes | Skill folder name (from list results) |
-
-Delegates to `PluginService.uninstall()`.
-
-#### `list` — List Installed Skills
-
-No parameters. Returns all installed skills for the current agent, including `name`, `folder`, and `description`.
-
----
-
-## memory Tool
-
-Manage persistent cross-session memory. This is the write interface for CherryClaw's memory system (reading is done via inline content in the system prompt).
-
-### Design Principle
-
-The tool description encodes the memory decision logic:
-
-> Before writing to FACT.md, ask yourself: will this information still matter in 6 months? If not, use append instead.
-
-### Actions
-
-#### `update` — Update FACT.md
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `content` | string | Yes | Complete markdown content of FACT.md |
-
-Atomic write: writes to a temp file first, then replaces via `rename`. Ensures no file corruption from mid-write crashes.
-
-File path supports case-insensitive matching. The `memory/` directory is auto-created if it doesn't exist.
-
-**Note**: This is a full overwrite, not an incremental edit. The agent needs to read existing content first, modify it, then write back the complete content.
-
-#### `append` — Append Log Entry
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `text` | string | Yes | Log entry text |
-| `tags` | string[] | No | Tag list |
-
-Appends a JSON line to `memory/JOURNAL.jsonl`:
-
-```json
-{"ts":"2026-03-10T12:00:00.000Z","tags":["deploy","production"],"text":"Deployed v2.1 to production"}
-```
-
-Timestamp is auto-generated. Suitable for one-off events, completed tasks, session summaries, and other short-term information.
-
-#### `search` — Search Logs
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `query` | string | No | Case-insensitive substring match |
-| `tag` | string | No | Filter by tag |
-| `limit` | integer | No | Max results (default 20) |
-
-Returns matching log entries in reverse chronological order. `query` and `tag` can be combined.
-
----
-
-## Error Handling
-
-All tool calls execute within an internal try-catch. On error, returns an `{ isError: true }` MCP response with the error message. Errors are also logged to `loggerService`.
-
-## Key Files
+## Key files
 
 | File | Description |
 |---|---|
-| `src/main/ai/mcp/servers/claw.ts` | ClawServer complete implementation (4 tools + helpers) |
-| `src/main/ai/mcp/servers/__tests__/claw.test.ts` | 37 unit tests |
-| `src/main/services/agents/services/cherryclaw/index.ts` | MCP server injection logic |
+| `src/main/ai/mcp/servers/claw.ts` | `ClawServer` class — three tools |
+| `src/main/ai/mcp/servers/__tests__/claw.test.ts` | 33 unit tests |
+| `src/main/ai/mcp/servers/skills.ts` | Skills MCP server |
+| `src/main/ai/mcp/servers/workspaceMemory.ts` | Workspace-memory MCP server |
+| `src/main/ai/runtime/claudeCode/settingsBuilder.ts` | `buildMcpServers` (injection) + `adjustAllowedToolsForMcp` (wildcard) |
+| `packages/shared/ai/claudecode/constants.ts` | `SOUL_MODE_DISALLOWED_TOOLS`, `CHANNEL_SECURITY_PROMPT` |

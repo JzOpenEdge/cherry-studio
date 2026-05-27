@@ -4,16 +4,16 @@
 
 | File | LOC | Role |
 |---|---|---|
-| `src/main/ai/AiService.ts` | 551 | Lifecycle service; non-stream IPC handler registration; SDK dispatch |
-| `src/main/ai/types/requests.ts` | 51 | `AiBaseRequest`, `AiStreamRequest`, `AiTransportOptions`, `ListModelsRequest` |
-| `src/main/ai/types/merged.ts` | 76 | `AppProviderSettingsMap` extension type merging |
+| `src/main/ai/AiService.ts` | 641 | Lifecycle service; IPC handler registration; non-stream entry points |
+| `src/main/ai/types/requests.ts` | 83 | `AiBaseRequest`, `AiStreamRequest`, `AiTransportOptions`, `ListModelsRequest` |
+| `src/main/ai/types/merged.ts` | 102 | `AppProviderSettingsMap` extension type merging |
 | `src/main/ai/types/index.ts` | 45 | Re-exports + `AppProviderId` map |
 | Tests | `__tests__/AiService.test.ts` (114) | Lifecycle + IPC handler smoke tests |
 
 ## Intent
 
-`AiService` is the lifecycle-owned entry for non-stream `Ai_*` channels
-and in-process SDK dispatch. It is intentionally thin — it routes calls into the
+`AiService` is the lifecycle-owned IPC owner for the `Ai_*` channel
+namespace. It is intentionally thin — it routes IPC calls into the
 shared building blocks (`Agent`, `buildAgentParams`, `dispatchStreamRequest`,
 `translateService`) and is not where business logic lives. Adding a new
 LLM-driven IPC entry should be one IPC line in `registerIpcHandlers()`
@@ -26,12 +26,12 @@ plus a method.
 | `Ai_GenerateText` | `ipcHandle` | `generateText(request)` — non-streaming |
 | `Ai_CheckModel` | `ipcHandle` | `checkModel(request, timeout?)` — health probe |
 | `Ai_EmbedMany` | `ipcHandle` | `embedMany(request)` |
-| `Ai_GenerateImage` | `ipcHandle` | image generation with a request-scoped abort controller |
-| `Ai_AbortImage` | `ipcOn` | aborts the matching image request by renderer-generated request id |
+| `Ai_GenerateImage` | `ipcOn` (MessagePort) | port-based abort, no main-side registry |
 | `Ai_ListModels` | `ipcHandle` | `listModels(request)` |
 | `Ai_Translate_Open` | `ipcHandle` | `translateService.translate(request)` — see [translate-on-main.md](./translate-on-main.md) |
 | `Ai_ToolApproval_Respond` | `ipcHandle` | applies decision, dispatches `continue-conversation` when all decided |
-| `Ai_Stream_Open` / `Ai_Stream_Attach` / `Ai_Stream_Detach` / `Ai_Stream_Abort` | `AiStreamManager` IPC handlers | stream lifecycle and attach/detach live on the manager, not `AiService` |
+| `Ai_Stream_Open` / `Ai_Stream_Attach` / `Ai_Stream_Abort` | `ipcHandle` | proxied to `AiStreamManager` (the manager registers these in its own lifecycle) |
+| `Ai_EstimateTokens` | `ipcHandle` | thin forwarder to the [`token-estimator-p0`](./token-estimator-p0.md) pure module |
 
 ## Key changes
 
@@ -40,7 +40,7 @@ plus a method.
 ```ts
 @Injectable()
 @ServicePhase(Phase.WhenReady)
-@DependsOn(['McpRuntimeService', 'McpCatalogService', 'AiStreamManager'])
+@DependsOn(['McpService', 'AiStreamManager'])
 export class AiService extends BaseService {
   protected async onInit(): Promise<void> {
     registerBuiltinTools()
@@ -53,7 +53,7 @@ export class AiService extends BaseService {
 }
 ```
 
-- **`@DependsOn(['McpRuntimeService', 'McpCatalogService', 'AiStreamManager'])`** — explicit
+- **`@DependsOn(['McpService', 'AiStreamManager'])`** — explicit
   because some methods read from `AiStreamManager` (e.g. continue
   dispatch after approval). The manager is in the same phase; container
   resolves the order.
@@ -62,15 +62,17 @@ export class AiService extends BaseService {
 - **Clean stop drains approvals** — outstanding `canUseTool` promises
   are rejected so they don't hang across a service restart.
 
-### `Ai_GenerateImage` request registry
+### `Ai_GenerateImage` uses MessagePort
 
-The image generation channel uses `ipcHandle` for `Ai_GenerateImage` and
-an `Ai_AbortImage` fire-and-forget channel. The renderer supplies a
-request id; Main stores one `AbortController` per request id and deletes
-the entry in the handler's `finally` block.
+The image generation channel uses `MessagePort` instead of `ipcHandle`
+so the renderer can drive abort without a main-side request registry.
+Per-call MessageChannel; `port2` transferred; renderer posts
+`{ type: 'abort' }`; main sends one terminal `result` / `error` and
+closes.
 
-This is intentionally local to image generation until the shared
-`ipcHandleWithAbort` helper lands.
+This is the only IPC handler in the service that uses ports — the
+pattern lives in `src/preload/invokeWithAbort.ts` and is referenced in
+the `Ai_GenerateImage` handler comments.
 
 ### `Ai_ToolApproval_Respond`
 
@@ -121,13 +123,13 @@ Uses `promptStreamLifecycle` (no status broadcast, no grace period).
 
 ## Invariants
 
-- `AiService` owns non-stream AI IPC. `AiStreamManager` owns stream
-  open/attach/detach/abort.
+- `Ai_*` channels are the only IPC channels `AiService` owns. The
+  `AiStreamManager` owns its own three stream channels.
 - IPC handlers narrow renderer input to `AiTransportOptions` —
   `signal` injection happens only on in-process callers.
-- `Ai_GenerateImage` is the only request-id abort registry in this
-  service; new abort-capable handlers should use a shared helper once it
-  exists.
+- `Ai_GenerateImage` is the only port-based handler; if a new abort-
+  capable handler is added, it should follow the same pattern (not
+  add a main-side abort registry).
 
 ## Validation
 

@@ -1,8 +1,5 @@
 # Backend Token Estimation (P0)
 
-> Deferred design note. This is not part of the current AI architecture
-> implementation stack.
-
 ## Context
 
 In an earlier cleanup pass we deleted `src/renderer/src/services/TokenService.ts` along with the input-bar token-count badge — its message-count-based "X / Y context" UX was incompatible with V2's per-model context window awareness. The user wants the feature back, but redesigned:
@@ -17,7 +14,7 @@ P0 scope: get a working "current prompt tokens / model context window" badge bac
 
 ### Pure module (no lifecycle service)
 
-Token estimation is stateless and side-effect-free — it doesn't own resources, doesn't subscribe to events, doesn't need lifecycle ordering. Per `CLAUDE.md`'s decision guide, it's a plain module/function exported from main, called by an `ipcHandle` registered inside the existing `AiService` lifecycle service (which owns non-stream AI IPC channels such as `Ai_GenerateText` and `Ai_ToolApproval_Respond`; stream channels are owned by `AiStreamManager`).
+Token estimation is stateless and side-effect-free — it doesn't own resources, doesn't subscribe to events, doesn't need lifecycle ordering. Per `CLAUDE.md`'s decision guide, it's a plain module/function exported from main, called by an `ipcHandle` registered inside the existing `AiService` lifecycle service (which already owns AI-namespace IPC channels: `Ai_Stream_Open`, `Ai_GenerateText`, `Ai_ToolApproval_Respond`, …).
 
 ```
 renderer

@@ -1,8 +1,5 @@
 # Large-File Upload — Port Plan
 
-> Deferred porting note. This is not part of the current AI architecture
-> implementation stack.
-
 ## What's missing on Main
 
 `src/main/ai/messages/fileProcessor.ts::resolveFileUIPart` currently inlines

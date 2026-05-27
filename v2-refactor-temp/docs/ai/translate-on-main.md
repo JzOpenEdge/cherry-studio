@@ -36,7 +36,7 @@ provider plumbing.
 src/main/
 ├── ai/
 │   ├── AiService.ts                                       ← lifecycle owner; registers Ai_Translate_Open in onInit
-│   └── streamManager/
+│   └── stream-manager/
 │       ├── AiStreamManager.ts                             ← streamPrompt() entry consumed by translate
 │       ├── listeners/{WebContentsListener,PersistenceListener}.ts
 │       └── persistence/backends/TranslationBackend.ts     ← writes data-translation part on the source message
@@ -55,8 +55,8 @@ with the right listeners, and returns the synthetic streamId. No pool,
 no watcher, no on-disk handle.
 
 The one persistent side effect — the `Ai_Translate_Open` IPC handler —
-rides on `AiService.onInit` (already lifecycle, already the owner for
-non-stream AI IPC). `AiService` calls into `translateService.open(sender,
+rides on `AiService.onInit` (already lifecycle, already the IPC owner
+for the AI domain). `AiService` calls into `translateService.open(sender,
 req)` from inside the handler. No new lifecycle entry, no new
 `serviceRegistry` line.
 
