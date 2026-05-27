@@ -2,33 +2,21 @@ import { uuid } from '@renderer/utils'
 import type { Model } from '@shared/data/types/model'
 
 import type { DmxapiPaintingData as DmxapiPainting } from '../../model/types/paintingData'
-import { generationModeType } from '../../model/types/paintingData'
 import type { ModelOption } from '../../model/types/paintingModel'
 import { loadPaintingModelOptions } from '../../model/utils/paintingModelOptions'
 import type { PaintingProvider } from '../types'
-import { DEFAULT_PAINTING, MODEOPTIONS } from './config'
+import { DEFAULT_PAINTING } from './config'
 import { buildDmxapiConfigFields } from './fields'
 import { generateWithDmxapiUnified } from './generateUnified'
-import { clearDmxapiFileMap, type DmxapiModelMeta, setDmxapiModelMetaCache, toDmxapiDbMode } from './runtime'
+import { type DmxapiModelMeta, setDmxapiModelMetaCache } from './runtime'
 
 const generateRandomSeed = () => Math.floor(Math.random() * 1000000).toString()
-
-/**
- * Map a painting-page tab value to the canonical `ImageGenerationMode`. dmxapi's
- * tabs already use the same string values ('generate' / 'edit' / 'merge'); kept
- * as a function for clarity at the filter call-site.
- */
-const tabToImageMode = (tab: string): 'generate' | 'edit' | 'merge' => {
-  if (tab === 'edit') return 'edit'
-  if (tab === 'merge') return 'merge'
-  return 'generate'
-}
 
 /**
  * Pull dmxapi-specific UI metadata off the registry's `imageGeneration` block
  * so the painting page can render its dropdown labels, default size, custom-size
  * gate, and pass `extend_params` through providerBag — without a side-channel
- * catalog fetch. Replaces the bundled `DMXApiModelData` shape (Phase B).
+ * catalog fetch.
  */
 function modelOptionFromRegistry(opt: ModelOption<Model>): ModelOption<Model> {
   const ig = opt.raw?.imageGeneration
@@ -50,15 +38,14 @@ function modelOptionFromRegistry(opt: ModelOption<Model>): ModelOption<Model> {
 export const dmxapiProvider = {
   id: 'dmxapi',
   mode: {
-    tabs: MODEOPTIONS.map((mode) => ({ value: mode.value, labelKey: mode.labelKey })),
-    defaultTab: generationModeType.GENERATION,
-    tabToDbMode: (tab: string) => toDmxapiDbMode(tab),
-    // Dropdown = (user's enabled dmxapi image-gen models) ∩ (the canonical
-    // `imageGeneration.modes` allowlist for the current tab). The registry's
-    // `imageGeneration` block carries everything the painting page needs
-    // (sizes, custom-size range, vendorParams = `extend_params`) — no
-    // server fetch and no bundled catalog file.
-    getModels: (tab: string) => ({
+    // edit / merge tabs were retired with the prompt-box attachment work —
+    // mode is now derived from `painting.inputFiles.length` at generate
+    // time (0 → generate, 1 → edit, ≥2 → merge). Any dmxapi image-gen
+    // model is reachable through this single entry.
+    tabs: [{ value: 'generate', labelKey: 'paintings.mode.generate' }],
+    defaultTab: 'generate',
+    tabToDbMode: () => 'generate',
+    getModels: () => ({
       type: 'async' as const,
       loader: async () => {
         const all = (await loadPaintingModelOptions('dmxapi')) as ModelOption<Model>[]
@@ -76,31 +63,21 @@ export const dmxapiProvider = {
         })
         setDmxapiModelMetaCache(metaForCache)
 
-        const requiredMode = tabToImageMode(tab)
-        return all
-          .filter((opt) => {
-            const modes = opt.raw?.imageGeneration?.modes
-            return modes ? modes.includes(requiredMode) : requiredMode === 'generate'
-          })
-          .map(modelOptionFromRegistry)
+        return all.map(modelOptionFromRegistry)
       }
     }),
-    createPaintingData: ({ tab, modelOptions }) => {
-      const generationMode = (tab as generationModeType) || generationModeType.GENERATION
-      clearDmxapiFileMap()
-
+    createPaintingData: ({ modelOptions }) => {
       const first = modelOptions?.[0]
       const firstMeta = first?.meta ?? {}
       return {
         ...DEFAULT_PAINTING,
         id: uuid(),
-        mode: toDmxapiDbMode(tab),
+        mode: 'generate',
         // Seed is client-generated so the user can read and reuse it for
         // reproducible reruns; size/n/etc. are left unset so the server
         // (or the form's registry-driven initialValue, once the user
         // confirms a chip) supplies the value.
         seed: generateRandomSeed(),
-        generationMode,
         model: first?.value || '',
         priceModel: String(firstMeta.price || ''),
         extend_params: (firstMeta.extend_params as Record<string, unknown> | undefined) || {}
@@ -108,12 +85,11 @@ export const dmxapiProvider = {
     }
   },
   // size + customSize derive from each model's `imageGeneration` block in
-  // the registry (Phase A/B). dmxapi's vendor extras — style_type chips,
-  // autoCreate switch, conditional seed input — are kept in `byTab` and
-  // appended after the registry-derived fields by PaintingSettings.
+  // the registry. dmxapi's vendor extras — seed input + autoCreate switch —
+  // are appended after the registry-derived fields by PaintingSettings.
   registryKeyMap: { size: 'image_size' },
   fields: {
-    byTab: Object.fromEntries(MODEOPTIONS.map((mode) => [mode.value, buildDmxapiConfigFields()])),
+    byTab: { generate: buildDmxapiConfigFields() },
     onModelChange: ({ modelId, modelOptions }) => {
       const model = modelOptions.find((item) => item.value === modelId)
       if (model) {
@@ -133,5 +109,3 @@ export const dmxapiProvider = {
   },
   generate: (input) => generateWithDmxapiUnified(input)
 } satisfies PaintingProvider<DmxapiPainting>
-
-export { DmxapiSetting } from './components'

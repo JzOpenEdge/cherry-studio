@@ -1,7 +1,6 @@
 import { uuid } from '@renderer/utils'
 
 import type { DmxapiPaintingData as DmxapiPainting } from '../../model/types/paintingData'
-import { generationModeType } from '../../model/types/paintingData'
 
 // 模型数据类型
 export type DMXApiModelData = {
@@ -33,9 +32,3 @@ export const DEFAULT_PAINTING: DmxapiPainting = {
   prompt: '',
   model: '' // 将在运行时动态设置
 }
-
-export const MODEOPTIONS = [
-  { labelKey: 'paintings.mode.generate', value: generationModeType.GENERATION },
-  { labelKey: 'paintings.mode.edit', value: generationModeType.EDIT },
-  { labelKey: 'paintings.mode.merge', value: generationModeType.MERGE }
-]

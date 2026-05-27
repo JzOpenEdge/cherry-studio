@@ -3,7 +3,6 @@ import type { Model } from '@shared/data/types/model'
 import type { PaintingData, TokenFluxPaintingData } from '../model/types/paintingData'
 import type { ModelOption } from '../model/types/paintingModel'
 import type { PaintingProviderRuntime } from '../model/types/paintingProviderRuntime'
-import { DmxapiSetting } from '../providers/dmxapi'
 import { TokenFluxCenterContent, TokenFluxSetting } from '../providers/tokenflux'
 import Artboard from './Artboard'
 
@@ -21,8 +20,7 @@ export function PaintingSettingsExtras({
   provider,
   painting,
   selectedModelOption,
-  patchPainting,
-  tab
+  patchPainting
 }: {
   provider: PaintingProviderRuntime
   painting: PaintingData
@@ -32,10 +30,6 @@ export function PaintingSettingsExtras({
   patchPainting: (updates: Partial<PaintingData>) => void
   tab: string
 }) {
-  if (provider.id === 'dmxapi') {
-    return <DmxapiSetting paintingId={painting.id} mode={tab} />
-  }
-
   if (provider.id === 'tokenflux') {
     if (!isTokenFluxPainting(painting)) {
       return null
@@ -50,9 +44,9 @@ export function PaintingSettingsExtras({
     )
   }
 
-  // newapi / cherryin / aionly: edit-mode UI was retired — the prompt-box
-  // attachment now drives `/v1/images/edits` routing via
-  // `painting.inputFiles`. No vendor sidebar needed.
+  // newapi / cherryin / aionly / dmxapi: vendor edit-mode UIs were retired
+  // — `painting.inputFiles` from the prompt-box attachment surface drives
+  // edit / merge routing now. No vendor sidebar needed.
   return null
 }
 
