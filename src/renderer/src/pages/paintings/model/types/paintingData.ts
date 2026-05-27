@@ -1,5 +1,6 @@
 import type { GenerateImagesConfig } from '@google/genai'
 import type { FileMetadata } from '@renderer/types'
+import type { FileEntry } from '@shared/data/types/file/fileEntry'
 import type { PaintingMode } from '@shared/data/types/painting'
 
 export type PaintingGenerationStatus = 'running' | 'failed' | 'canceled'
@@ -11,6 +12,13 @@ export type PaintingGenerationStatus = 'running' | 'failed' | 'canceled'
  * record (Painting in @shared/data/types/painting) does NOT carry mode.
  * `mediaType` is similarly not persisted; image vs video is derived from
  * `files` at display time when needed.
+ *
+ * `files` (outputs) still uses the legacy `FileMetadata` shape, awaiting the
+ * `cherrystudio://file/internal/{uuid}.{ext}` custom-protocol cleanup
+ * (TODO #15353); `inputFiles` (newly populated by the prompt-box attachment
+ * path) is v2-native `FileEntry`. Mappers and persistence work for both:
+ * `getTopLevelFileIds` is structural on `id`, and the DataApi `files.input`
+ * column carries IDs only.
  */
 export interface PaintingDataBase {
   id: string
@@ -19,7 +27,7 @@ export interface PaintingDataBase {
   model?: string
   prompt: string
   files: FileMetadata[]
-  inputFiles?: FileMetadata[]
+  inputFiles?: FileEntry[]
   persistedAt?: string
   generationStatus?: PaintingGenerationStatus | null
   generationTaskId?: string | null

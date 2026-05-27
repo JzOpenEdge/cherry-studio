@@ -83,17 +83,22 @@ describe('paintingMappers', () => {
       mode: 'generate',
       model: 'model-1',
       prompt: 'draw a cat',
-      // `name` is the on-disk filename (`${id}${ext}`) — Artboard's
-      // FileManager.getFileUrl appends it to `Data/Files/` to build the
-      // <img src>. `origin_name` carries the user-facing display name.
+      // Output `files` still flow through `fileEntryToMetadata` until the
+      // `cherrystudio://file/internal/{uuid}.{ext}` custom protocol lands
+      // (TODO #15353). `name` is the on-disk filename (`${id}${ext}`) so
+      // Artboard's FileManager.getFileUrl resolves it; `origin_name` carries
+      // the user-facing display name.
       files: [{ ...file, name: 'file-1.png', origin_name: 'file-1.png', path: '/tmp/file-1.png' }],
+      // Input files are v2-native `FileEntry`s — no adapter pass.
       inputFiles: [
         {
-          ...file,
           id: 'input-file-1',
-          name: 'input-file-1.png',
-          origin_name: 'input-file-1.png',
-          path: '/tmp/input-file-1.png'
+          origin: 'internal',
+          name: 'input-file-1',
+          ext: 'png',
+          size: 10,
+          createdAt: Date.parse('2026-01-01T00:00:00.000Z'),
+          updatedAt: Date.parse('2026-01-01T00:00:00.000Z')
         }
       ],
       persistedAt: '2026-01-01T00:00:00.000Z'

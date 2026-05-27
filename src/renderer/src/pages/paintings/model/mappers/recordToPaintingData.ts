@@ -27,36 +27,35 @@ function normalizeStoredPaintingModel(value: unknown): string | undefined {
 }
 
 /**
- * Look up v2 `FileEntry` rows by id via DataApi, then adapt to FileMetadata.
- *
- * Replaces the v1 `FileManager.getFile(id)` Dexie lookup that returned null
- * for any file produced via the v2 `createInternalEntry` path — which is the
- * default now for painting outputs. Missing ids (404 / migrator drop / user
- * deletion) are filtered out so the painting still hydrates with whatever
- * files do resolve.
- *
- * TODO(#15353): Drop the adapt-to-FileMetadata step once paintings consume
- * `FileEntry` directly and the Artboard uses the `cherrystudio://file/...`
- * custom protocol. `resolveFiles` would then be a thin DataApi pass-through
- * returning `FileEntry[]`.
+ * Look up v2 `FileEntry` rows by id via DataApi. Missing ids (404 / migrator
+ * drop / user deletion) are filtered out so the painting still hydrates with
+ * whatever files do resolve.
  */
-async function resolveFiles(ids: string[]): Promise<FileMetadata[]> {
+async function fetchFileEntries(ids: string[]): Promise<FileEntry[]> {
   if (ids.length === 0) return []
   const entries = await Promise.all(
     ids.map(async (id) => {
       try {
         return (await dataApiService.get(`/files/entries/${id}` as never)) as FileEntry
       } catch (error) {
-        // Entry deleted or never registered (v1 file the migrator skipped,
-        // FK-filtered ref-insert, manual cleanup). Skip silently — the
-        // painting hydrates with whatever's still resolvable.
         logger.warn('Skipping unresolved file_entry for painting', { id, error })
         return null
       }
     })
   )
-  const resolved = entries.filter((e): e is FileEntry => e !== null)
-  return Promise.all(resolved.map(fileEntryToMetadata))
+  return entries.filter((e): e is FileEntry => e !== null)
+}
+
+/**
+ * Adapt output `FileEntry`s to the v1 `FileMetadata` shape the Artboard still
+ * consumes. TODO(#15353): drop this adapter once the
+ * `cherrystudio://file/internal/{uuid}.{ext}` custom protocol lands and the
+ * Artboard switches to that scheme — `painting.files` will then carry
+ * `FileEntry[]` directly.
+ */
+async function resolveOutputFiles(ids: string[]): Promise<FileMetadata[]> {
+  const entries = await fetchFileEntries(ids)
+  return Promise.all(entries.map(fileEntryToMetadata))
 }
 
 /**
@@ -68,8 +67,10 @@ async function resolveFiles(ids: string[]): Promise<FileMetadata[]> {
  * a different tab.
  */
 export async function recordToPaintingData(record: PaintingRecord): Promise<PaintingData> {
-  const files = await resolveFiles(record.files.output)
-  const inputFiles = await resolveFiles(record.files.input)
+  const [files, inputFiles] = await Promise.all([
+    resolveOutputFiles(record.files.output),
+    fetchFileEntries(record.files.input)
+  ])
 
   const model = normalizeStoredPaintingModel(record.modelId)
 

@@ -118,7 +118,15 @@ export function usePaintingList({
     async (target: PaintingData) => {
       cancelGeneration(target.id)
       await deletePainting(target.id)
-      await FileManager.deleteFiles([...(target.files ?? []), ...(target.inputFiles ?? [])])
+      // Output files still carry the v1 `FileMetadata` shape — TODO #15353
+      // (custom-protocol cleanup) is what eventually moves them through the
+      // same v2 IPC path. Input files are v2-native `FileEntry`s and route
+      // straight to `permanentDelete` per-entry (paintings have at most a
+      // handful so per-call IPC overhead is fine).
+      await FileManager.deleteFiles(target.files ?? [])
+      await Promise.all(
+        (target.inputFiles ?? []).map((entry) => window.api.file.permanentDelete({ kind: 'entry', entryId: entry.id }))
+      )
       if (target.id === painting.id) {
         await selectNextAfterDelete(target.id)
       } else {
