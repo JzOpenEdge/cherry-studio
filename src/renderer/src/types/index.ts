@@ -611,6 +611,13 @@ export type GenerateImageParams = {
    * express. Passed by reference through the plugin chain.
    */
   providerOptions?: Record<string, Record<string, unknown>>
+  /**
+   * Painting-only: when present, the AI SDK image-model call switches to the
+   * "edit" prompt shape — `prompt` becomes `{ text, images }` and the request
+   * routes to `/v1/images/edits` (or the vendor equivalent). Empty / undefined
+   * keeps the legacy generate shape.
+   */
+  inputImages?: (Uint8Array | string)[]
 }
 
 /**

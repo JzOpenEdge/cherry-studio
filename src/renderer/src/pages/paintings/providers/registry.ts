@@ -1,7 +1,8 @@
+import i18n from '@renderer/i18n'
 import { uuid } from '@renderer/utils'
 
 import { canonicalGenerate, type CanonicalGenerateOptions } from '../model/canonicalGenerate'
-import type { PaintingData } from '../model/types/paintingData'
+import type { OpenApiCompatiblePaintingData, PaintingData } from '../model/types/paintingData'
 import { loadPaintingModelOptions } from '../model/utils/paintingModelOptions'
 import { resolveCogviewSize } from '../model/validators/cogviewSize'
 import { aihubmixProvider } from './aihubmix'
@@ -84,4 +85,60 @@ export const providerRegistry: Record<string, PaintingProviderDefinition> = {
   dmxapi: dmxapiProvider,
   ppio: ppioProvider,
   tokenflux: tokenFluxProvider
+}
+
+/**
+ * Catch-all factory for OpenAI-compatible providers — every provider that
+ * isn't in `providerRegistry` (new-api, cherryin, aionly, any user-added
+ * OpenAI-compatible provider) goes through here. Uses the AI SDK's native
+ * `/v1/images/generations` ⇄ `/v1/images/edits` switch, driven by
+ * `painting.inputFiles` (the prompt-box attachment surface).
+ *
+ * `imagen-*` models prefer English prompts, so the placeholder swaps to an
+ * English hint when one is selected — the lone vendor-specific UI bit
+ * that survives the collapse.
+ */
+export function createOpenApiCompatibleProvider(providerId: string): PaintingProviderDefinition {
+  return createSingleModeProvider<OpenApiCompatiblePaintingData>({
+    id: providerId,
+    dbMode: 'generate',
+    models: { type: 'async', loader: () => loadPaintingModelOptions(providerId) },
+    createPaintingData: ({ modelOptions }) => ({
+      id: uuid(),
+      providerId,
+      mode: 'generate',
+      files: [],
+      prompt: '',
+      model: modelOptions?.[0]?.value || ''
+    }),
+    fields: [],
+    onModelChange: ({ modelId }) => ({ model: modelId }),
+    prompt: {
+      placeholder: ({ painting }) => {
+        if (painting.model?.startsWith('imagen-')) return i18n.t('paintings.prompt_placeholder_en')
+        return i18n.t('paintings.prompt_placeholder_edit')
+      }
+    },
+    generate: (input) =>
+      canonicalGenerate(input, {
+        fieldMap: { batchSize: 'n' },
+        // `painting.size === 'auto'` must omit `imageSize` entirely and let
+        // `allowAutoSize: true` tell AiProvider to skip the 1024×1024 default.
+        // Registry-driven models (Nano Banana Pro etc.) store the resolution
+        // chip's value under `painting.imageSize` via the registry keyMap —
+        // fall through to that field when the legacy `size` isn't set.
+        resolvers: {
+          imageSize: (p) => {
+            if (p.size && p.size !== 'auto') return p.size
+            const resolution = (p as unknown as Record<string, unknown>).imageSize
+            return typeof resolution === 'string' && resolution !== '' ? resolution : undefined
+          }
+        },
+        constants: { allowAutoSize: true },
+        // When the user attaches an image through the prompt box, the AI SDK
+        // call switches to the "edit" prompt shape (`{ text, images }`) and
+        // routes to `/v1/images/edits`.
+        forwardInputFilesAsEditImages: true
+      } as CanonicalGenerateOptions<OpenApiCompatiblePaintingData>)
+  })
 }

@@ -80,6 +80,18 @@ export interface CanonicalGenerateOptions<T extends PaintingData> {
    * to enforce any per-model rule.
    */
   requirePrompt?: boolean | ((painting: T) => boolean)
+  /**
+   * Forward `painting.inputFiles` to the AI SDK call as `inputImages`. The
+   * image-model dispatches to its edit endpoint (`/v1/images/edits` for
+   * OpenAI-compatible providers) with `prompt: { text, images }`. Use this
+   * for vendors whose edit path is the AI SDK's native `generateImage`
+   * call with image-prompts (newapi / cherryin / aionly).
+   *
+   * Vendors that route bytes through their own `providerBag` (aihubmix /
+   * dmxapi / ppio — pre-fetch images themselves and put them in the bag)
+   * should leave this off and continue handling the pre-fetch.
+   */
+  forwardInputFilesAsEditImages?: boolean
 }
 
 const AI_SDK_PARAM_KEYS: readonly AiSdkParamKey[] = [
@@ -167,6 +179,24 @@ export async function canonicalGenerate<T extends PaintingData>(
   // Constants override any field-map / default already written above. This
   // matches the spirit of "vendor always wants X" (newapi's allowAutoSize).
   Object.assign(aiSdkParams, options.constants ?? {})
+
+  // Pre-fetch attached image bytes when the vendor routes its edit path
+  // through the AI SDK native `generateImage({ prompt: { text, images } })`
+  // shape (newapi / cherryin / aionly). The bytes are passed to
+  // `generatePainting` via `aiSdkParams.inputImages`; `modernGeneratePainting
+  // Image` then switches the prompt shape automatically.
+  if (options.forwardInputFilesAsEditImages) {
+    const inputFiles = painting.inputFiles ?? []
+    if (inputFiles.length > 0) {
+      aiSdkParams.inputImages = await Promise.all(
+        inputFiles.map(async (entry) => {
+          const onDiskName = `${entry.id}${entry.ext ? `.${entry.ext}` : ''}`
+          const result = await window.api.file.binaryImage(onDiskName)
+          return new Uint8Array(result.data)
+        })
+      )
+    }
+  }
 
   const providerBag = options.providerBag?.(painting)
 

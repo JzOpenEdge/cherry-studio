@@ -489,7 +489,7 @@ export default class AiProvider {
     params: GenerateImageParams,
     providerConfig: ProviderConfig
   ): Promise<ClassifiedImage[]> {
-    const { model, prompt, imageSize, aspectRatio, batchSize, signal, allowAutoSize } = params
+    const { model, prompt, inputImages, imageSize, aspectRatio, batchSize, signal, allowAutoSize } = params
 
     const providerOptions = mergeExtraProviderOptions(
       buildImageProviderOptions(providerConfig.providerId, params),
@@ -498,8 +498,12 @@ export default class AiProvider {
 
     const resolvedSize = resolveImageSize(imageSize, allowAutoSize)
     const resolvedAspectRatio = resolveAspectRatio(aspectRatio)
+    // When the caller supplies `inputImages`, switch to the AI SDK's "edit"
+    // prompt shape (`{ text, images }`); the executor routes the request to
+    // `/v1/images/edits` (or the vendor equivalent) instead of `/generations`.
+    const hasInputImages = inputImages && inputImages.length > 0
     const aiSdkParams = {
-      prompt,
+      prompt: hasInputImages ? { text: prompt, images: inputImages } : prompt,
       ...(resolvedSize !== undefined && { size: resolvedSize }),
       ...(resolvedAspectRatio !== undefined && { aspectRatio: resolvedAspectRatio }),
       n: batchSize || 1,
