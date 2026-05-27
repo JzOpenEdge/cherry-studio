@@ -436,7 +436,6 @@ export interface DmxapiPainting extends PaintingParams {
   image_size?: string
   seed?: string
   style_type?: string
-  autoCreate?: boolean
   generationMode?: generationModeType
   priceModel?: string
   extend_params?: Record<string, unknown>

@@ -8,7 +8,6 @@ import type { PaintingProvider } from '../types'
 import { DEFAULT_PAINTING } from './config'
 import { buildDmxapiConfigFields } from './fields'
 import { generateWithDmxapiUnified } from './generateUnified'
-import { type DmxapiModelMeta, setDmxapiModelMetaCache } from './runtime'
 
 const generateRandomSeed = () => Math.floor(Math.random() * 1000000).toString()
 
@@ -49,20 +48,6 @@ export const dmxapiProvider = {
       type: 'async' as const,
       loader: async () => {
         const all = (await loadPaintingModelOptions('dmxapi')) as ModelOption<Model>[]
-        // Seed the sync cache so the field renderer's options callback (which
-        // is synchronous) can look up per-model size lists at render time.
-        const metaForCache: DmxapiModelMeta[] = all.map((opt) => {
-          const ig = opt.raw?.imageGeneration
-          return {
-            id: opt.value,
-            image_sizes: (ig?.sizes ?? []).map((v: string) => ({ label: v, value: v })),
-            is_custom_size: ig?.customSize !== undefined,
-            min_image_size: ig?.customSize?.min,
-            max_image_size: ig?.customSize?.max
-          }
-        })
-        setDmxapiModelMetaCache(metaForCache)
-
         return all.map(modelOptionFromRegistry)
       }
     }),
@@ -74,9 +59,9 @@ export const dmxapiProvider = {
         id: uuid(),
         mode: 'generate',
         // Seed is client-generated so the user can read and reuse it for
-        // reproducible reruns; size/n/etc. are left unset so the server
-        // (or the form's registry-driven initialValue, once the user
-        // confirms a chip) supplies the value.
+        // reproducible reruns. Should migrate to the registry's
+        // `supports.seed: true` per-model declaration so the form auto-
+        // renders the field without dmxapi needing a vendor extras block.
         seed: generateRandomSeed(),
         model: first?.value || '',
         priceModel: String(firstMeta.price || ''),
@@ -85,8 +70,9 @@ export const dmxapiProvider = {
     }
   },
   // size + customSize derive from each model's `imageGeneration` block in
-  // the registry. dmxapi's vendor extras — seed input + autoCreate switch —
-  // are appended after the registry-derived fields by PaintingSettings.
+  // the registry; `seed` is dmxapi's lone vendor extra — TODO: declare
+  // `supports.seed: true` on dmxapi models in the registry so this row
+  // becomes registry-derived too and `buildDmxapiConfigFields` disappears.
   registryKeyMap: { size: 'image_size' },
   fields: {
     byTab: { generate: buildDmxapiConfigFields() },
