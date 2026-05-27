@@ -3,47 +3,43 @@ import { loadPaintingModelOptions } from '../../model/utils/paintingModelOptions
 import type { PaintingProvider } from '../types'
 import { createDefaultPpioPainting } from './defaults'
 import { generateWithPpioUnified } from './generateUnified'
-import { getPpioPreviewSrc, handlePpioImageUpload, ppioImagePlaceholder } from './imageUpload'
-import { getModelsByMode, type PpioMode } from './models'
+import { PPIO_MODELS } from './models'
+
+// PPIO_MODELS lists each model under one or both modes; unify into a single
+// "is this id reachable?" set so the dropdown shows any model with a
+// transport route, regardless of which mode hosts it.
+const PPIO_MODEL_IDS = new Set(PPIO_MODELS.map((m) => m.id))
+const PPIO_GROUP_BY_ID = new Map(PPIO_MODELS.map((m) => [m.id, m.group]))
 
 export const ppioProvider = {
   id: 'ppio',
   mode: {
-    tabs: [
-      { value: 'ppio_draw', labelKey: 'paintings.mode.generate' },
-      { value: 'ppio_edit', labelKey: 'paintings.mode.edit' }
-    ],
-    defaultTab: 'ppio_draw',
-    tabToDbMode: (tab: string) => (tab === 'ppio_draw' ? 'draw' : 'edit'),
-    // Dropdown = (user's enabled ppio image-gen models) ∩ (PPIO_MODELS routing
-    // table for the current mode). PPIO_MODELS stays as the transport routing
-    // index (endpoint + sync/async per modelId); only the dropdown source
-    // moves to the user's actual enabled set.
-    getModels: (tab: string) => ({
+    // draw / edit tabs were retired with the prompt-box attachment work —
+    // `generateWithPpioUnified` derives the PpioMode from the selected
+    // model + whether the user attached an image. Any ppio image-gen model
+    // (txt2img, img2img, upscale, eraser, …) is reachable from this single
+    // entry.
+    tabs: [{ value: 'generate', labelKey: 'paintings.mode.generate' }],
+    defaultTab: 'generate',
+    tabToDbMode: () => 'generate',
+    getModels: () => ({
       type: 'async' as const,
       loader: async () => {
         const userEnabled = await loadPaintingModelOptions('ppio')
-        const supportedById = new Map(getModelsByMode(tab as PpioMode).map((m) => [m.id, m]))
         return userEnabled
-          .filter((opt) => supportedById.has(opt.value))
-          .map((opt) => ({ ...opt, group: supportedById.get(opt.value)?.group ?? opt.group }))
+          .filter((opt) => PPIO_MODEL_IDS.has(opt.value))
+          .map((opt) => ({ ...opt, group: PPIO_GROUP_BY_ID.get(opt.value) ?? opt.group }))
       }
     }),
-    createPaintingData: ({ tab }) => createDefaultPpioPainting(tab)
+    createPaintingData: () => createDefaultPpioPainting()
   },
-  // Field list comes from the registry's per-model `imageGeneration`
-  // block (see packages/provider-registry/data/models.json). Per-model
-  // keyMap aliases canonical keys to legacy field names — `seed` →
-  // `ppioSeed`, `promptEnhancement` → `usePreLlm`, `imageResolution`
-  // → `resolution` — so existing PaintingData shape stays intact.
+  // Field list comes from the registry's per-model `imageGeneration` block.
+  // Per-model keyMap aliases canonical keys to legacy field names — `seed`
+  // → `ppioSeed`, `promptEnhancement` → `usePreLlm`, `imageResolution` →
+  // `resolution` — so existing PaintingData shape stays intact.
   fields: {
     byTab: {},
     onModelChange: ({ modelId }) => ({ model: modelId }) as Partial<PaintingData>
-  },
-  image: {
-    onUpload: ({ key, file, patchPainting }) => handlePpioImageUpload(key, file, patchPainting),
-    getPreviewSrc: ({ key, painting }) => getPpioPreviewSrc(key, painting),
-    placeholder: ppioImagePlaceholder
   },
   generate: (input) => generateWithPpioUnified(input)
 } satisfies PaintingProvider<PaintingData>
