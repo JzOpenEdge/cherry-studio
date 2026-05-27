@@ -2,41 +2,18 @@ import { uuid } from '@renderer/utils'
 
 import type { AihubmixPaintingData } from '../../model/types/paintingData'
 
-const DEFAULT_PAINTING: AihubmixPaintingData = {
-  id: 'aihubmix_1',
-  providerId: 'aihubmix',
-  mode: 'generate',
-  model: 'gemini-3-pro-image-preview',
-  aspectRatio: 'ASPECT_1_1',
-  numImages: 1,
-  styleType: 'AUTO',
-  prompt: '',
-  negativePrompt: '',
-  magicPromptOption: true,
-  seed: '',
-  imageWeight: 50,
-  resemblance: 50,
-  detail: 50,
-  imageFile: undefined,
-  mask: undefined,
-  files: [],
-  renderingSpeed: 'DEFAULT',
-  size: '1024x1024',
-  background: 'auto',
-  quality: 'auto',
-  moderation: 'auto',
-  n: 1,
-  numberOfImages: 4,
-  safetyTolerance: 6,
-  imageSize: '1K'
-}
-
 export function createDefaultAihubmixPainting(tab?: string): AihubmixPaintingData {
-  const mode = tab ?? 'generate'
   return {
-    ...DEFAULT_PAINTING,
     id: uuid(),
-    mode,
-    model: tab === 'generate' ? 'gemini-3-pro-image-preview' : 'V_3'
+    providerId: 'aihubmix',
+    mode: tab ?? 'generate',
+    // Tab-specific seed model — generate-mode picks the default text-to-image
+    // model, the image-mode tabs (remix / upscale) target Ideogram V_3 since
+    // it's the most capable of those flows. Per-field knobs (size, batch,
+    // aspectRatio, quality, etc.) stay unset so the server applies the
+    // model's own defaults.
+    model: tab === 'generate' || tab === undefined ? 'gemini-3-pro-image-preview' : 'V_3',
+    prompt: '',
+    files: []
   }
 }

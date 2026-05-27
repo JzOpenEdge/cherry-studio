@@ -95,12 +95,14 @@ export const dmxapiProvider = {
         ...DEFAULT_PAINTING,
         id: uuid(),
         mode: toDmxapiDbMode(tab),
+        // Seed is client-generated so the user can read and reuse it for
+        // reproducible reruns; size/n/etc. are left unset so the server
+        // (or the form's registry-driven initialValue, once the user
+        // confirms a chip) supplies the value.
         seed: generateRandomSeed(),
         generationMode,
         model: first?.value || '',
         priceModel: String(firstMeta.price || ''),
-        image_size:
-          (firstMeta.image_sizes as Array<{ label: string; value: string }> | undefined)?.[0]?.value || '1328x1328',
         extend_params: (firstMeta.extend_params as Record<string, unknown> | undefined) || {}
       }
     }

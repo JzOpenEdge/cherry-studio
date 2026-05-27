@@ -8,10 +8,5 @@ export const DEFAULT_PAINTING: GeneratePainting = {
   mode: 'generate',
   files: [],
   model: '',
-  prompt: '',
-  quality: 'auto',
-  n: 1,
-  background: 'auto',
-  moderation: 'auto',
-  size: 'auto'
+  prompt: ''
 }

@@ -31,13 +31,7 @@ export const DEFAULT_PAINTING: DmxapiPainting = {
   mode: 'generate',
   files: [],
   prompt: '',
-  image_size: '1328x1328',
-  aspect_ratio: '1:1',
-  n: 1,
-  seed: '',
-  model: '', // 将在运行时动态设置
-  autoCreate: false,
-  generationMode: generationModeType.GENERATION
+  model: '' // 将在运行时动态设置
 }
 
 export const MODEOPTIONS = [

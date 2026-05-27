@@ -40,15 +40,6 @@ export interface CanonicalGenerateOptions<T extends PaintingData> {
    */
   fieldMap?: Partial<Record<AiSdkParamKey, keyof T & string>>
   /**
-   * Per-field default applied when the PaintingData value is falsy
-   * (undefined / null / empty string). Lets a vendor preserve its bespoke
-   * fallback (`steps ?? 25`, `guidanceScale ?? 4.5`) without writing a full
-   * generate.ts. Omitted fields are skipped — the server picks its own
-   * default — which is the right behavior for fields whose default truly
-   * depends on the upstream model.
-   */
-  defaults?: Partial<AiSdkParams>
-  /**
    * Constants always written into aiSdkParams regardless of painting state
    * (e.g. newapi's `allowAutoSize: true`). Overrides any field-map lookup
    * for the same key.
@@ -120,16 +111,21 @@ function isEmptyValue(value: unknown): boolean {
 /**
  * Generic painting generate path: maps a vendor's `PaintingData` (whatever
  * field names it persists) into the canonical AI-SDK `aiSdkParams` shape via
- * an optional `fieldMap` + `defaults` + `resolvers` declaration, then defers
- * the actual call to the shared `generatePainting` skeleton.
+ * an optional `fieldMap` + `resolvers` declaration, then defers the actual
+ * call to the shared `generatePainting` skeleton.
  *
- * Replaces the 25-line "map painting.X → aiSdkParams.Y, fall back to default"
- * boilerplate that every vendor used to ship as its own `generate.ts`. The
- * vendor folder collapses to a single table entry (`generate: (input) =>
- * canonicalGenerate(input, { fieldMap, defaults, ... })`) plus, where they
- * exist, named modules for the bits that don't fit the canonical shape
- * (resolvers for vendor-specific size rules, providerBag for vendor extras,
+ * Replaces the 25-line "map painting.X → aiSdkParams.Y" boilerplate that
+ * every vendor used to ship as its own `generate.ts`. The vendor folder
+ * collapses to a single table entry (`generate: (input) =>
+ * canonicalGenerate(input, { fieldMap, ... })`) plus, where they exist,
+ * named modules for the bits that don't fit the canonical shape (resolvers
+ * for vendor-specific size rules, providerBag for vendor extras,
  * preValidate for cross-field rules).
+ *
+ * Empty PaintingData fields are omitted from `aiSdkParams` — every vendor's
+ * image-generation API treats these (size / n / steps / cfg / etc.) as
+ * optional, so the server picks its own default rather than the client
+ * imposing one. Use `constants` or `resolvers` when a field MUST be sent.
  */
 export async function canonicalGenerate<T extends PaintingData>(
   input: GenerateInput<T>,
@@ -166,13 +162,12 @@ export async function canonicalGenerate<T extends PaintingData>(
     const raw = (painting as unknown as Record<string, unknown>)[paintingKey as string]
     if (!isEmptyValue(raw)) {
       aiSdkParams[aiKey] = raw
-      continue
     }
-
-    const fallback = (options.defaults as Record<string, unknown> | undefined)?.[aiKey]
-    if (fallback !== undefined) {
-      aiSdkParams[aiKey] = fallback
-    }
+    // Empty painting state → field omitted from the request. The server
+    // (or the model itself) applies its own default. Earlier versions
+    // accepted a `defaults` option here to backfill — removed because
+    // these fields aren't required by any vendor's image-generation API
+    // and a client-side default just imposed a choice the user never made.
   }
 
   // Constants override any field-map / default already written above. This

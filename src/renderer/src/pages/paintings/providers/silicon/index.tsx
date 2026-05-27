@@ -13,14 +13,6 @@ const SILICON_FIELD_MAP = {
   numInferenceSteps: 'steps'
 } as const
 
-const SILICON_DEFAULTS = {
-  imageSize: '1024x1024',
-  batchSize: 1,
-  numInferenceSteps: 25,
-  guidanceScale: 4.5,
-  promptEnhancement: false
-}
-
 export const siliconProvider: PaintingProviderDefinition = createSingleModeProvider<PaintingData>({
   id: 'silicon',
   dbMode: 'generate',
@@ -32,5 +24,5 @@ export const siliconProvider: PaintingProviderDefinition = createSingleModeProvi
   fields: [],
   registryKeyMap: { size: 'imageSize', numInferenceSteps: 'steps' },
   onModelChange: ({ modelId }) => ({ model: modelId }),
-  generate: (input) => canonicalGenerate(input, { fieldMap: SILICON_FIELD_MAP, defaults: SILICON_DEFAULTS })
+  generate: (input) => canonicalGenerate(input, { fieldMap: SILICON_FIELD_MAP })
 })

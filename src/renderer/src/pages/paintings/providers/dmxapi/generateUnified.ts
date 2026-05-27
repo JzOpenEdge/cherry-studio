@@ -52,7 +52,6 @@ export async function generateWithDmxapiUnified(input: GenerateInput<DmxapiPaint
       }
     },
     fieldMap: { imageSize: 'image_size', batchSize: 'n' },
-    defaults: { imageSize: '1024x1024', batchSize: 1 },
     providerBag: (painting) => ({
       model: painting.model,
       n: painting.n,

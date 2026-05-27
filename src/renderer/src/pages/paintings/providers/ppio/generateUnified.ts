@@ -38,7 +38,6 @@ export async function generateWithPpioUnified(input: GenerateInput<PpioPainting>
       }
     },
     fieldMap: { imageSize: 'size' },
-    defaults: { imageSize: '1024x1024', batchSize: 1 },
     providerBag: (painting) => {
       const modelConfig = painting.model ? getModelConfig(painting.model, toPpioMode(painting.mode)) : undefined
       return {

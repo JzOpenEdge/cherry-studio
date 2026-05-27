@@ -34,7 +34,7 @@ export function createNewApiProvider(providerId: string): PaintingProviderDefini
     // newapi's gpt-image-1 schema is fully canonical.
     fields: {
       byTab: {},
-      onModelChange: ({ modelId }) => ({ model: modelId, n: 1 })
+      onModelChange: ({ modelId }) => ({ model: modelId })
     },
     prompt: {
       placeholder: ({ painting }) => {

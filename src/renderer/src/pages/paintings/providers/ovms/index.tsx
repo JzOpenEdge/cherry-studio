@@ -31,7 +31,6 @@ export const ovmsProvider: PaintingProviderDefinition = createSingleModeProvider
     canonicalGenerate(input, {
       noAuth: true,
       fieldMap: { imageSize: 'size' },
-      defaults: { imageSize: '512x512', batchSize: 1 },
       providerBag: (painting) => ({
         model: painting.model,
         size: painting.size,

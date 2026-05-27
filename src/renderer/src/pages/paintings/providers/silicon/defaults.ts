@@ -11,12 +11,10 @@ export function createDefaultSiliconPainting(modelOptions?: ModelOption[]) {
     mode: 'generate' as const,
     files: [],
     prompt: '',
-    negativePrompt: '',
-    imageSize: '1024x1024',
-    numImages: 1,
+    // Seed stays client-generated so the user can SEE the value and copy it
+    // for reproducible reruns; every other knob (size/numImages/steps/cfg)
+    // is left unset so the server picks its model-aware default.
     seed: generateSiliconRandomSeed(),
-    steps: 25,
-    guidanceScale: 4.5,
     model: modelOptions?.[0]?.value ?? ''
   }
 }
