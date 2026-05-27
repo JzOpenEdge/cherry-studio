@@ -40,7 +40,6 @@ export const aihubmixProvider = {
   // imageResolution) to the legacy persisted field names (n,
   // numberOfImages, aspectRatio, imageSize) so existing PaintingData
   // shape is preserved.
-  useRegistryForm: true,
   fields: {
     byTab: {},
     onModelChange: ({ modelId }) => ({ model: modelId })

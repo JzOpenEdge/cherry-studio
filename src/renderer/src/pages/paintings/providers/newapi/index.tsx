@@ -4,28 +4,8 @@ import { uuid } from '@renderer/utils'
 import type { OpenApiCompatiblePaintingData as PaintingData } from '../../model/types/paintingData'
 import { loadPaintingModelOptions } from '../../model/utils/paintingModelOptions'
 import type { PaintingProvider, PaintingProviderDefinition } from '../types'
-import { DEFAULT_PAINTING, MODELS, SUPPORTED_MODELS } from './config'
-import { newApiFields } from './fields'
+import { DEFAULT_PAINTING } from './config'
 import { generateWithNewApiUnified } from './generateUnified'
-
-function getModelDefaults(modelId: string) {
-  const modelConfig = MODELS.find((model) => model.name === modelId)
-  const updates: Partial<PaintingData> = { model: modelId, n: 1 }
-
-  if (modelConfig?.imageSizes?.length) {
-    updates.size = modelConfig.imageSizes[0].value
-  }
-
-  if (modelConfig?.quality?.length) {
-    updates.quality = modelConfig.quality[0].value
-  }
-
-  if (modelConfig?.moderation?.length) {
-    updates.moderation = modelConfig.moderation[0].value
-  }
-
-  return updates
-}
 
 export function createNewApiProvider(providerId: string): PaintingProviderDefinition {
   const provider = {
@@ -39,11 +19,7 @@ export function createNewApiProvider(providerId: string): PaintingProviderDefini
       tabToDbMode: (tab: string) => tab,
       getModels: () => ({
         type: 'async',
-        loader: async () =>
-          (await loadPaintingModelOptions(providerId)).map((option) => ({
-            ...option,
-            meta: { ...option.meta, custom: !SUPPORTED_MODELS.includes(option.value) }
-          }))
+        loader: () => loadPaintingModelOptions(providerId)
       }),
       createPaintingData: ({ modelOptions, tab }) => ({
         ...DEFAULT_PAINTING,
@@ -53,10 +29,12 @@ export function createNewApiProvider(providerId: string): PaintingProviderDefini
         model: modelOptions?.[0]?.value || ''
       })
     },
-    useRegistryForm: true,
+    // Field list comes from the registry's per-model `imageGeneration` block
+    // (size / quality / moderation / background / batch). No vendor extras —
+    // newapi's gpt-image-1 schema is fully canonical.
     fields: {
-      byTab: newApiFields,
-      onModelChange: ({ modelId }) => getModelDefaults(modelId)
+      byTab: {},
+      onModelChange: ({ modelId }) => ({ model: modelId, n: 1 })
     },
     prompt: {
       placeholder: ({ painting }) => {

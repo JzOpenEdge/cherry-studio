@@ -30,7 +30,6 @@ export const siliconProvider: PaintingProviderDefinition = createSingleModeProvi
   },
   createPaintingData: ({ modelOptions }) => createDefaultSiliconPainting(modelOptions),
   fields: [],
-  useRegistryForm: true,
   registryKeyMap: { size: 'imageSize', numInferenceSteps: 'steps' },
   onModelChange: ({ modelId }) => ({ model: modelId }),
   generate: (input) => canonicalGenerate(input, { fieldMap: SILICON_FIELD_MAP, defaults: SILICON_DEFAULTS })

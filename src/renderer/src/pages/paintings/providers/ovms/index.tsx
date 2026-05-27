@@ -18,7 +18,6 @@ export const ovmsProvider: PaintingProviderDefinition = createSingleModeProvider
   // can't be enumerated, but the API contract (size / num_inference_steps
   // / rng_seed) is fixed provider-wide. keyMap aliases canonical keys to
   // OVMS's snake_case persisted field names.
-  useRegistryForm: true,
   fields: [],
   onModelChange: ({ modelId }) => ({ model: modelId }),
   prompt: {

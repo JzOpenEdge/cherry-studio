@@ -36,7 +36,6 @@ export const ppioProvider = {
   // keyMap aliases canonical keys to legacy field names — `seed` →
   // `ppioSeed`, `promptEnhancement` → `usePreLlm`, `imageResolution`
   // → `resolution` — so existing PaintingData shape stays intact.
-  useRegistryForm: true,
   fields: {
     byTab: {},
     onModelChange: ({ modelId }) => ({ model: modelId }) as Partial<PaintingData>

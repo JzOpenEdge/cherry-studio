@@ -21,7 +21,6 @@ export const zhipuProvider: PaintingProviderDefinition = createSingleModeProvide
   // when the selected model exposes it). The PaintingData persists `imageSize`,
   // so registryKeyMap aliases canonical `size` → `imageSize`.
   fields: [],
-  useRegistryForm: true,
   registryKeyMap: { size: 'imageSize' },
   onModelChange: ({ modelId }) => ({ model: modelId }),
   // CogView's custom-size rules (range / divisible-by-16 / pixel-budget /

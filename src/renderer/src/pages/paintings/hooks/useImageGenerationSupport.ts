@@ -3,10 +3,10 @@ import type { ImageGenerationSupport } from '@shared/data/types/model'
 
 /**
  * Read the registry's painting-page metadata block for a (provider, model)
- * pair. Drives the generic painting form when a provider opts into
- * `useRegistryForm`. Returns `undefined` while loading, on a miss, or when
- * `providerId` / `modelId` is unavailable — callers treat that as "no derived
- * fields" and fall back to the provider's hand-rolled `fields.byTab`.
+ * pair. Drives the painting form's canonical field set. Returns `undefined`
+ * while loading, on a miss, or when `providerId` / `modelId` is unavailable —
+ * `imageGenerationToFields` treats that as "no derived fields" and the page
+ * falls back to whatever vendor extras the provider declares in `fields.byTab`.
  *
  * The hook is always invoked at the call site (rules-of-hooks); `enabled`
  * gates the actual fetch so it's safe to pass undefined ids.

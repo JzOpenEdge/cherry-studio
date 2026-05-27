@@ -6,7 +6,6 @@ import type { ModelOption } from '../../model/types/paintingModel'
 import { loadPaintingModelOptions } from '../../model/utils/paintingModelOptions'
 import { createSingleModeProvider, type PaintingProviderDefinition } from '../types'
 import { DEFAULT_TOKENFLUX_PAINTING } from './config'
-import { tokenFluxFields } from './fields'
 import { generateWithTokenFluxUnified } from './generateUnified'
 
 export const tokenFluxProvider: PaintingProviderDefinition = createSingleModeProvider<TokenFluxPainting>({
@@ -30,7 +29,7 @@ export const tokenFluxProvider: PaintingProviderDefinition = createSingleModePro
     ...DEFAULT_TOKENFLUX_PAINTING,
     id: uuid()
   }),
-  fields: tokenFluxFields,
+  fields: [],
   onModelChange: ({ modelId }) => ({ model: modelId, inputParams: {} }),
   generate: (input) => generateWithTokenFluxUnified(input)
 })
