@@ -11,27 +11,27 @@ export function createNewApiProvider(providerId: string): PaintingProviderDefini
   const provider = {
     id: providerId,
     mode: {
-      tabs: [
-        { value: 'generate', labelKey: 'paintings.mode.generate' },
-        { value: 'edit', labelKey: 'paintings.mode.edit' }
-      ],
+      tabs: [{ value: 'generate', labelKey: 'paintings.mode.generate' }],
       defaultTab: 'generate',
-      tabToDbMode: (tab: string) => tab,
+      tabToDbMode: () => 'generate',
       getModels: () => ({
         type: 'async',
         loader: () => loadPaintingModelOptions(providerId)
       }),
-      createPaintingData: ({ modelOptions, tab }) => ({
+      createPaintingData: ({ modelOptions }) => ({
         ...DEFAULT_PAINTING,
         id: uuid(),
         providerId,
-        mode: tab === 'edit' ? 'edit' : 'generate',
+        mode: 'generate',
         model: modelOptions?.[0]?.value || ''
       })
     },
     // Field list comes from the registry's per-model `imageGeneration` block
     // (size / quality / moderation / background / batch). No vendor extras —
-    // newapi's gpt-image-1 schema is fully canonical.
+    // newapi's gpt-image-1 schema is fully canonical. Edit-mode is no longer
+    // a separate tab; the user attaches an image through the prompt box and
+    // `generateWithNewApiUnified` routes to `/v1/images/edits` based on
+    // `painting.inputFiles.length`.
     fields: {
       byTab: {},
       onModelChange: ({ modelId }) => ({ model: modelId })
@@ -47,5 +47,3 @@ export function createNewApiProvider(providerId: string): PaintingProviderDefini
 
   return provider
 }
-
-export { NewApiSetting } from './sidebar'

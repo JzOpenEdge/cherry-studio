@@ -7,22 +7,21 @@ import { runPainting } from '../../model/paintingGenerationService'
 import type { OpenApiCompatiblePaintingData as PaintingData } from '../../model/types/paintingData'
 import { checkProviderEnabled } from '../../utils/checkProviderEnabled'
 import type { GenerateInput } from '../types'
-import { getEditImageFiles } from './editFiles'
 
 /**
  * Unified newapi/cherryin/aionly painting adapter.
  *
  * The AI SDK routes `/images/generations` vs `/images/edits` purely on
- * whether `files` are attached — so we branch on `editFiles.length > 0`, not
- * on `tab`. The edit branch calls `aiProvider.editImage` directly (no
- * URL-classification needed — gpt-image edits return base64 only). The
- * generate branch delegates to `canonicalGenerate` with newapi's
- * `painting.size === 'auto'` quirk encoded as a resolver.
+ * whether the user has attached input images — so we branch on
+ * `painting.inputFiles.length > 0`, not on a tab. The edit branch calls
+ * `aiProvider.editImage` directly (base64-only return, no URL
+ * classification). The generate branch delegates to `canonicalGenerate`
+ * with newapi's `painting.size === 'auto'` quirk encoded as a resolver.
  */
 export async function generateWithNewApiUnified(input: GenerateInput<PaintingData>) {
   const { painting, provider, abortController } = input
-  const editFiles = getEditImageFiles(painting.id)
-  if (editFiles.length === 0) {
+  const inputFiles = painting.inputFiles ?? []
+  if (inputFiles.length === 0) {
     return canonicalGenerate(input, {
       fieldMap: { batchSize: 'n' },
       // `painting.size === 'auto'` must omit `imageSize` entirely and set
@@ -56,6 +55,19 @@ export async function generateWithNewApiUnified(input: GenerateInput<PaintingDat
 
   const imageSize = painting.size && painting.size !== 'auto' ? painting.size : undefined
 
+  // Read bytes for each attached FileEntry off the v2 file IPC. Internal
+  // entries live at `{userData}/Data/Files/{id}.{ext}` so the legacy
+  // `binaryImage(fileId)` IPC (keyed on the on-disk basename) resolves
+  // correctly; a dedicated `read({kind:'entry',entryId})` v2 endpoint is
+  // tracked separately.
+  const inputImages = await Promise.all(
+    inputFiles.map(async (entry) => {
+      const onDiskName = `${entry.id}${entry.ext ? `.${entry.ext}` : ''}`
+      const result = await window.api.file.binaryImage(onDiskName)
+      return new Uint8Array(result.data)
+    })
+  )
+
   return runPainting(async () => {
     const model: Model = { id: painting.model!, provider: provider.id, name: painting.model!, group: '' }
     const ai = new AiProvider(model, {
@@ -67,7 +79,6 @@ export async function generateWithNewApiUnified(input: GenerateInput<PaintingDat
       models: [model],
       enabled: provider.isEnabled
     })
-    const inputImages = await Promise.all(editFiles.map(async (file) => new Uint8Array(await file.arrayBuffer())))
     const images = await ai.editImage({
       model: painting.model!,
       prompt,
